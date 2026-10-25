@@ -1,0 +1,362 @@
+/* ⚠️  AUTO-GENERATED — DO NOT EDIT. Run `npm run generate:font`. */
+/* Source: src/styles/font/font.json */
+/*
+ * Cỡ chữ:   `calc(var(--fs-{token}, <mặc định>) * var(--ui-scale, 1))`
+ * Giãn dòng: `calc(var(--lh-{token}, <mặc định>) * var(--lh-scale, 1))`
+ * Weight qua `--fw-*`. Ở tỉ lệ 1 kết quả ĐÚNG BẰNG số trong font.json.
+ *
+ * ⚠️ Giãn dòng dùng biến RIÊNG (`--lh-scale`), KHÔNG dùng chung `--ui-scale`.
+ * Lý do: rất nhiều ô trong app có CHIỀU CAO CỐ ĐỊNH vừa khít một dòng chữ
+ * (`h-6` = 24px, `h-7`, `h-8`…). Giãn dòng tăng cùng nhịp với cỡ chữ sẽ đẩy
+ * dòng cao hơn ô và chữ TRÀN / ĐÈ lên nhau. `--lh-scale` tăng ở NỬA nhịp nên
+ * chữ to lên mà chiều cao dòng gần như giữ nguyên. Xem `globals.css`.
+ *
+ * ⛔ VÌ SAO NHÂN Ở ĐÂY, KHÔNG PHẢI Ở ROOT FONT-SIZE
+ * Bản trước phóng to bằng `html { font-size: calc(16px * var(--ui-scale)) }`.
+ * Cách đó phóng to MỌI thứ, không riêng chữ: Tailwind v4 để `--spacing`
+ * theo rem nên `p-2`, `h-11`, `w-80`, `gap-2`… đều giãn theo. Ở 1.8× thì màn
+ * 1920px chỉ còn ~1067px không gian logic → bảng, panel, header tràn và vỡ
+ * bố cục. Nhân vào riêng token chữ thì KHUNG GIỮ NGUYÊN, chỉ chữ to lên —
+ * đúng thứ màn hình TV cần.
+ *
+ * Biến `--fs-{token}` riêng vẫn giữ để nâng SÀN cho vài token bé nhất
+ * (caption-9 / caption-10) mà không phải sửa ~200 chỗ gọi trong JSX.
+ * Xem `globals.css` mục "TV mode".
+ */
+
+@utility text-h1 {
+  font-size: calc(var(--fs-h1, 2.5rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h1, 3.5rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-regular, 450);
+}
+
+@utility text-h1-medium {
+  font-size: calc(var(--fs-h1, 2.5rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h1, 3.5rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-medium, 500);
+}
+
+@utility text-h1-semibold {
+  font-size: calc(var(--fs-h1, 2.5rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h1, 3.5rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-semibold, 600);
+}
+
+@utility text-h1-bold {
+  font-size: calc(var(--fs-h1, 2.5rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h1, 3.5rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-bold, 700);
+}
+
+@utility text-h2 {
+  font-size: calc(var(--fs-h2, 2rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h2, 2.5rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-regular, 450);
+}
+
+@utility text-h2-medium {
+  font-size: calc(var(--fs-h2, 2rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h2, 2.5rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-medium, 500);
+}
+
+@utility text-h2-semibold {
+  font-size: calc(var(--fs-h2, 2rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h2, 2.5rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-semibold, 600);
+}
+
+@utility text-h2-bold {
+  font-size: calc(var(--fs-h2, 2rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h2, 2.5rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-bold, 700);
+}
+
+@utility text-h3 {
+  font-size: calc(var(--fs-h3, 1.5rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h3, 2.25rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-regular, 450);
+}
+
+@utility text-h3-medium {
+  font-size: calc(var(--fs-h3, 1.5rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h3, 2.25rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-medium, 500);
+}
+
+@utility text-h3-semibold {
+  font-size: calc(var(--fs-h3, 1.5rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h3, 2.25rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-semibold, 600);
+}
+
+@utility text-h3-bold {
+  font-size: calc(var(--fs-h3, 1.5rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h3, 2.25rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-bold, 700);
+}
+
+@utility text-h4 {
+  font-size: calc(var(--fs-h4, 1.25rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h4, 2rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-regular, 450);
+}
+
+@utility text-h4-medium {
+  font-size: calc(var(--fs-h4, 1.25rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h4, 2rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-medium, 500);
+}
+
+@utility text-h4-semibold {
+  font-size: calc(var(--fs-h4, 1.25rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h4, 2rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-semibold, 600);
+}
+
+@utility text-h4-bold {
+  font-size: calc(var(--fs-h4, 1.25rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-h4, 2rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-bold, 700);
+}
+
+@utility text-body-18 {
+  font-size: calc(var(--fs-body-18, 1.125rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-18, 1.75rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-regular, 450);
+}
+
+@utility text-body-18-medium {
+  font-size: calc(var(--fs-body-18, 1.125rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-18, 1.75rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-medium, 500);
+}
+
+@utility text-body-18-semibold {
+  font-size: calc(var(--fs-body-18, 1.125rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-18, 1.75rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-semibold, 600);
+}
+
+@utility text-body-18-bold {
+  font-size: calc(var(--fs-body-18, 1.125rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-18, 1.75rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-bold, 700);
+}
+
+@utility text-body-16 {
+  font-size: calc(var(--fs-body-16, 1rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-16, 1.5rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-regular, 450);
+}
+
+@utility text-body-16-medium {
+  font-size: calc(var(--fs-body-16, 1rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-16, 1.5rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-medium, 500);
+}
+
+@utility text-body-16-semibold {
+  font-size: calc(var(--fs-body-16, 1rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-16, 1.5rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-semibold, 600);
+}
+
+@utility text-body-16-bold {
+  font-size: calc(var(--fs-body-16, 1rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-16, 1.5rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-bold, 700);
+}
+
+@utility text-body-14 {
+  font-size: calc(var(--fs-body-14, 0.875rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-14, 1.25rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-regular, 450);
+}
+
+@utility text-body-14-medium {
+  font-size: calc(var(--fs-body-14, 0.875rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-14, 1.25rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-medium, 500);
+}
+
+@utility text-body-14-semibold {
+  font-size: calc(var(--fs-body-14, 0.875rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-14, 1.25rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-semibold, 600);
+}
+
+@utility text-body-14-bold {
+  font-size: calc(var(--fs-body-14, 0.875rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-14, 1.25rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-bold, 700);
+}
+
+@utility text-body {
+  font-size: calc(var(--fs-body, 0.8125rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body, 1.25rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-regular, 450);
+}
+
+@utility text-body-medium {
+  font-size: calc(var(--fs-body, 0.8125rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body, 1.25rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-medium, 500);
+}
+
+@utility text-body-semibold {
+  font-size: calc(var(--fs-body, 0.8125rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body, 1.25rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-semibold, 600);
+}
+
+@utility text-body-bold {
+  font-size: calc(var(--fs-body, 0.8125rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body, 1.25rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-bold, 700);
+}
+
+@utility text-body-13 {
+  font-size: calc(var(--fs-body-13, 0.8125rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-13, 1rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-regular, 450);
+}
+
+@utility text-body-13-medium {
+  font-size: calc(var(--fs-body-13, 0.8125rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-13, 1rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-medium, 500);
+}
+
+@utility text-body-13-semibold {
+  font-size: calc(var(--fs-body-13, 0.8125rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-13, 1rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-semibold, 600);
+}
+
+@utility text-body-13-bold {
+  font-size: calc(var(--fs-body-13, 0.8125rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-body-13, 1rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-bold, 700);
+}
+
+@utility text-caption-12 {
+  font-size: calc(var(--fs-caption-12, 0.75rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-12, 1rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-regular, 450);
+}
+
+@utility text-caption-12-medium {
+  font-size: calc(var(--fs-caption-12, 0.75rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-12, 1rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-medium, 500);
+}
+
+@utility text-caption-12-semibold {
+  font-size: calc(var(--fs-caption-12, 0.75rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-12, 1rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-semibold, 600);
+}
+
+@utility text-caption-12-bold {
+  font-size: calc(var(--fs-caption-12, 0.75rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-12, 1rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-bold, 700);
+}
+
+@utility text-caption-12-tight {
+  font-size: calc(var(--fs-caption-12-tight, 0.75rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-12-tight, 0.875rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-regular, 450);
+}
+
+@utility text-caption-12-tight-medium {
+  font-size: calc(var(--fs-caption-12-tight, 0.75rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-12-tight, 0.875rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-medium, 500);
+}
+
+@utility text-caption-12-tight-semibold {
+  font-size: calc(var(--fs-caption-12-tight, 0.75rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-12-tight, 0.875rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-semibold, 600);
+}
+
+@utility text-caption-12-tight-bold {
+  font-size: calc(var(--fs-caption-12-tight, 0.75rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-12-tight, 0.875rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-bold, 700);
+}
+
+@utility text-caption-10 {
+  font-size: calc(var(--fs-caption-10, 0.625rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-10, 1rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-regular, 450);
+}
+
+@utility text-caption-10-medium {
+  font-size: calc(var(--fs-caption-10, 0.625rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-10, 1rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-medium, 500);
+}
+
+@utility text-caption-10-semibold {
+  font-size: calc(var(--fs-caption-10, 0.625rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-10, 1rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-semibold, 600);
+}
+
+@utility text-caption-10-bold {
+  font-size: calc(var(--fs-caption-10, 0.625rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-10, 1rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-bold, 700);
+}
+
+@utility text-caption-10-tight {
+  font-size: calc(var(--fs-caption-10-tight, 0.625rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-10-tight, 0.75rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-regular, 450);
+}
+
+@utility text-caption-10-tight-medium {
+  font-size: calc(var(--fs-caption-10-tight, 0.625rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-10-tight, 0.75rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-medium, 500);
+}
+
+@utility text-caption-10-tight-semibold {
+  font-size: calc(var(--fs-caption-10-tight, 0.625rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-10-tight, 0.75rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-semibold, 600);
+}
+
+@utility text-caption-10-tight-bold {
+  font-size: calc(var(--fs-caption-10-tight, 0.625rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-10-tight, 0.75rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-bold, 700);
+}
+
+@utility text-caption-9 {
+  font-size: calc(var(--fs-caption-9, 0.5625rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-9, 0.75rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-regular, 450);
+}
+
+@utility text-caption-9-medium {
+  font-size: calc(var(--fs-caption-9, 0.5625rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-9, 0.75rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-medium, 500);
+}
+
+@utility text-caption-9-semibold {
+  font-size: calc(var(--fs-caption-9, 0.5625rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-9, 0.75rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-semibold, 600);
+}
+
+@utility text-caption-9-bold {
+  font-size: calc(var(--fs-caption-9, 0.5625rem) * var(--ui-scale, 1));
+  line-height: calc(var(--lh-caption-9, 0.75rem) * var(--lh-scale, 1));
+  font-weight: var(--fw-bold, 700);
+}
+

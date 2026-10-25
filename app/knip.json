@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "app/**/*.{ts,tsx}",
+    "scripts/**/*.mjs",
+    "src/**/index.ts",
+    "src/core/socket/index.ts!",
+    "src/core/capabilities/index.ts!",
+    "src/shell/deeplink/index.ts!"
+  ],
+  "project": ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}", "scripts/**/*.mjs", "tests/**/*.{ts,tsx}"],
+  "ignoreDependencies": ["expo-crypto", "expo-build-properties"]
+}

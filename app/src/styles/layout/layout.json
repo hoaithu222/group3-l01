@@ -1,0 +1,54 @@
+{
+  "radius": {
+    "none": 0,
+    "3xs": 4,
+    "2xs": 8,
+    "xs": 12,
+    "sm": 16,
+    "md": 24,
+    "lg": 32,
+    "full": 9999
+  },
+  "spacing": {
+    "3xs": 2,
+    "2xs": 4,
+    "xs": 8,
+    "sm": 12,
+    "md": 16,
+    "lg": 20,
+    "xl": 24,
+    "2xl": 28,
+    "3xl": 32,
+    "4xl": 40,
+    "5xl": 48,
+    "6xl": 64
+  },
+  "control": {
+    "xs": 32,
+    "sm": 40,
+    "md": 48,
+    "lg": 56
+  },
+  "icon": {
+    "xs": 16,
+    "sm": 20,
+    "md": 24,
+    "lg": 32,
+    "xl": 40,
+    "2xl": 48,
+    "3xl": 56
+  },
+  "border": {
+    "hairline": 1,
+    "medium": 1.5,
+    "thick": 2
+  },
+  "breakpoint": {
+    "phone": 390,
+    "tablet": 600,
+    "tablet-lg": 840
+  },
+  "container": {
+    "content": 720
+  }
+}

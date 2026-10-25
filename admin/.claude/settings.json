@@ -1,0 +1,7 @@
+{
+  "rules_dir": "docs/rules",
+  "agents_dir": ".claude/agents",
+  "permissions": {
+    "allow": ["Bash(npx tsc:*)", "Bash(npm run:*)", "Bash(node scripts/*)"]
+  }
+}

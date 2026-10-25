@@ -1,0 +1,7 @@
+# Mục tiêu thăm dò TCP+TLS (hạn chứng chỉ, bắt tay) — chép thành targets/blackbox-tls.yml rồi sửa tên miền.
+# turn.<domain>:443 = TURN/TLS do nginx edge của VM LiveKit kết thúc (SNI); lk.<domain>:443 = wss của LiveKit.
+- targets:
+    - turn.superapp.vcijsc.com:443
+    - lk.superapp.vcijsc.com:443
+  labels:
+    service: livekit

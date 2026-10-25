@@ -1,0 +1,45 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Ghi đè cho STAGING (p0-11) — dùng CHUNG với docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.staging.override.yml up -d
+#
+# Khác production:
+#  · Swagger bật (`SWAGGER_ENABLED=true` ở .env.api) và được nginx bảo vệ bằng basic auth (SWAGGER_AUTH_BASIC + secrets/swagger.htpasswd).
+#  · `DEV_TOOLS_ENABLED=true` (POST /api/v1/dev/sentry-test — OPS-01) và lấy mẫu Sentry cao hơn. Vẫn NODE_ENV=production (ảnh giống hệt prod).
+#  · LiveKit + egress chạy CÙNG VM qua `include` (staging đơn-VM, để tiết kiệm). ⚠️ Khi đó KHÔNG có TURN/TLS 443 (443 thuộc nginx của app) — chỉ UDP 3478;
+#    nên MED-13 (mạng chặn UDP) PHẢI kiểm ở LiveKit VM riêng (deploy/livekit) hoặc dùng LiveKit Cloud cho staging. Xem deploy/livekit/README.md.
+#
+# Nếu LiveKit ở VM riêng (khuyến nghị, cùng cấu trúc production) → BỎ khối `include` bên dưới và mount `livekit-proxy` là không cần.
+# Cần Docker Compose ≥ 2.20 (tính năng `include`).
+# ─────────────────────────────────────────────────────────────────────────────
+include:
+  - path: ../livekit/docker-compose.livekit.yml
+    project_directory: ../livekit
+    env_file: ../livekit/.env
+
+x-staging-be-env: &staging-be-env
+  SENTRY_ENVIRONMENT: staging
+  SENTRY_TRACES_SAMPLE_RATE: "0.2"
+  DEV_TOOLS_ENABLED: "true"
+  SWAGGER_ENABLED: "true"
+
+services:
+  api-1:
+    environment:
+      <<: *staging-be-env
+  api-2:
+    environment:
+      <<: *staging-be-env
+  worker:
+    environment:
+      <<: *staging-be-env
+
+  nginx:
+    environment:
+      LK_DOMAIN: ${LK_DOMAIN:?đặt LK_DOMAIN trong .env}
+      TURN_DOMAIN: ${TURN_DOMAIN:-}
+      SWAGGER_AUTH_BASIC: ${SWAGGER_AUTH_BASIC:-Super App staging}
+    volumes:
+      # Site `lk-staging.<domain>` → LiveKit (host network) của CHÍNH VM này qua host-gateway.
+      - ../nginx/sites/livekit-proxy.conf:/etc/nginx/templates/livekit-proxy.conf.template:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

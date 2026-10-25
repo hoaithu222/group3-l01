@@ -1,0 +1,32 @@
+# Build output
+dist
+build
+coverage
+
+# Dependencies
+node_modules
+
+# Auto-generated
+src/shared/theme/colors.generated.ts
+src/styles/font/generated-font.css
+src/assets/icons/systems/*.tsx
+src/assets/icons/systems/index.ts
+src/assets/image/index.ts
+src/shared/ui/icons/index.ts
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Locks
+package-lock.json
+
+# Legacy / deprecated (kit1) — sẽ bị xóa
+src/shared/components
+
+# Public assets
+public
+
+# Reports & plans (markdown handled separately if needed)
+plans/reports

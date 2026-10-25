@@ -1,0 +1,13 @@
+npx lint-staged
+
+# ⛔ Ba lớp gác dưới đây chạy trên TOÀN dự án, không chỉ file đã stage.
+# Lý do: `lint-staged` chỉ nhìn file trong commit, mà lỗi type và import vòng
+# gần như luôn nằm ở file KHÁC — file bị ảnh hưởng bởi thay đổi chứ không phải
+# file bị sửa.
+
+npm run typecheck
+
+# Gói được import nhưng KHÔNG khai trong package.json.
+# `tsc` không bắt được nếu có `declare module`, và bundler cũng không đỏ nếu
+# chưa ai gọi tới — xem đầu file scripts/check-imports.mjs.
+npm run check:imports

@@ -1,0 +1,3 @@
+<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 18 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path id="Primary" d="M0 6C0 2.6875 2.6875 0 6 0H8V2H6C3.79063 2 2 3.79063 2 6C2 8.20937 3.79063 10 6 10H8V12H6C2.6875 12 0 9.3125 0 6ZM18 6C18 9.3125 15.3125 12 12 12H10V10H12C14.2094 10 16 8.20937 16 6C16 3.79063 14.2094 2 12 2H10V0H12C15.3125 0 18 2.6875 18 6ZM6 5H13V7H5V5H6Z" fill="var(--fill-0, #94A3B8)"/>
+</svg>

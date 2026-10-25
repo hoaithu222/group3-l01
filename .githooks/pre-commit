@@ -1,0 +1,30 @@
+#!/bin/sh
+# Chạy kiểm tra của từng package CHỈ khi package đó có file staged.
+# Kích hoạt: git config core.hooksPath .githooks (xem docs/codex-setup.md).
+set -e
+root="$(git rev-parse --show-toplevel)"
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+
+run_pkg() {
+  pkg="$1"
+  if printf '%s\n' "$staged" | grep -q "^$pkg/"; then
+    echo "[hooks] $pkg: lint-staged + typecheck"
+    (cd "$root/$pkg" && npx lint-staged && npm run typecheck)
+  fi
+}
+
+# Quét secret trên các file đã staged trước khi cho phép commit. Không có
+# binary `gitleaks` cài sẵn (máy dev/CI runner chưa cài) → chỉ cảnh báo, KHÔNG
+# chặn commit — tránh chặn cứng workflow của người chưa cài gitleaks.
+if command -v gitleaks >/dev/null 2>&1; then
+  echo "[hooks] gitleaks: quét secret trên các file staged"
+  gitleaks protect --staged --redact -c "$root/.gitleaks.toml" || exit 1
+else
+  echo "[hooks] CẢNH BÁO: không tìm thấy binary 'gitleaks' — bỏ qua bước quét secret." >&2
+  echo "[hooks] Cài đặt: https://github.com/gitleaks/gitleaks#installing" >&2
+fi
+
+run_pkg app
+run_pkg admin
+run_pkg be
+exit 0

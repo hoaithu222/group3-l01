@@ -1,0 +1,42 @@
+# ── Phụ thuộc & kết quả build ────────────────────────────────────────────────
+node_modules
+dist
+dist-ssr
+*.local
+
+# ⚠️ File SINH TỰ ĐỘNG cố ý ĐƯỢC theo dõi, KHÔNG ignore:
+#   src/styles/theme/generated-colors.css   src/shared/theme/colors.generated.ts
+#   src/styles/font/generated-font.css      src/shared/ui/icons/index.ts
+#   src/assets/icons/index.tsx              src/assets/image/index.ts
+# Lý do: `generate:icons` và `generate:images` KHÔNG nằm trong `npm run build`.
+# Ignore chúng thì máy CI clone về sẽ thiếu registry icon và build đỏ.
+
+# ── Log ──────────────────────────────────────────────────────────────────────
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ── Biến môi trường (có thể chứa khoá) ───────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Kiểm thử ─────────────────────────────────────────────────────────────────
+coverage/
+*.lcov
+.nyc_output/
+test-results/
+
+# ── Trình soạn thảo / hệ điều hành ───────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+*.sw?
+
+# ── Cấu hình cục bộ của công cụ AI ───────────────────────────────────────────
+.claude/settings.local.json
+.mcp.json

@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Credentials (Firebase service account, APNs key) — KHÔNG commit
+*-firebase-adminsdk-*.json
+firebase-service-account*.json
+serviceAccountKey*.json
+google-services.json
+GoogleService-Info.plist
+*.p8
+secrets/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage/
+
+# Uploads (local storage)
+uploads/*
+!uploads/.gitkeep
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

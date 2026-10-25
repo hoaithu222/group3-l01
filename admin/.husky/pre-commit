@@ -1,0 +1,12 @@
+npx lint-staged
+
+# ⛔ BẮT BUỘC `tsc -b`, KHÔNG dùng `npx tsc --noEmit`.
+# tsconfig.json ở đây là solution-style (`files: []` + `references`), nên
+# `tsc --noEmit` kiểm ĐÚNG 0 FILE và luôn pass giả. Ở dự án gốc lỗi này từng
+# giấu 13 lỗi type thật lọt qua hàng chục lượt commit.
+npm run typecheck
+
+# Gói được import nhưng KHÔNG khai trong package.json.
+# `tsc` không bắt được nếu có `declare module`, bundler cũng không đỏ nếu chưa
+# ai import tới — xem đầu file scripts/check-imports.mjs.
+npm run check:imports

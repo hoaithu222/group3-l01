@@ -1,0 +1,239 @@
+/**
+ * Dock — hiệu ứng viết tay. Ba nhóm ĐỘC LẬP, mỗi nhóm bám một phần tử khác
+ * nhau nên transform của chúng KHÔNG bao giờ đè lên nhau:
+ *
+ *   §1 Phóng lân cận   — `.dock-magnify` + `.dock-magnify-item`  → trên Ô BẤM
+ *   §2 Bay vào         — `.dock-icon-enter`                      → trên SPAN BỌC GLYPH
+ *   §3 Vệt sáng gợi ý  — `.dock-hint`                            → phần tử riêng
+ *
+ * Sơ đồ trong DOM:
+ *
+ *   <nav class="dock-magnify" data-dock-state="opening">
+ *     <a class="dock-magnify-item">        ← §1 đặt transform ở đây
+ *       <span class="dock-icon-enter">     ← §2 đặt transform ở đây
+ *         <svg />
+ *
+ * ⛔ MÀU: file này chỉ được dùng token qua `color-mix(in srgb, var(--color-…))`.
+ *    KHÔNG hex, KHÔNG `rgba(…)` viết cứng — đổi bảng màu là vệt sáng đứng yên ở
+ *    màu cũ (`docs/rules/color-system.md`).
+ *
+ * ⚠️ Mốc thời gian ở đây phải KHỚP `DOCK_DURATION` trong `dock.theme.ts`: JS
+ *    dựa vào các mốc đó để đổi pha, lệch nhau là icon giật một nhịp ở cuối.
+ */
+
+/* ─────────────────────────────────────────────────────────────────────
+ * §1. PHÓNG LÂN CẬN — icon đang rê nở to, hai icon kề bên nở vừa.
+ *
+ * ⛔ VÌ SAO PHẢI VIẾT CSS TAY: hiệu ứng cần sibling-combinator (`:hover +`) và
+ *    `:has(+ :hover)` để với sang phần tử ANH EM. Utility class gắn lên từng
+ *    element không biểu diễn được quan hệ đó.
+ *
+ * ⛔ VÌ SAO BỌC `@media (hover: hover) and (pointer: fine)` — "STICKY HOVER".
+ *
+ *    `:hover` trên iPadOS KHÔNG phải trạng thái thoáng qua: chạm một phần tử là
+ *    WebKit gán `:hover` và GIỮ NGUYÊN cho tới lần chạm kế tiếp ở chỗ khác. Bản
+ *    gốc để rule ở scope toàn cục nên trên iPad icon KẸT ở trạng thái phóng to
+ *    sau khi bấm, và các icon lân cận kẹt luôn ở trạng thái bị đẩy sang bên.
+ *
+ *    Bản gốc chữa bằng cách reset `transform: none` trong
+ *    `@media (hover: none) and (pointer: coarse)` — đúng nhưng là chữa NGƯỢC:
+ *    rule vẫn tồn tại ở mọi nơi rồi mới gỡ đi. Ở đây gate THUẬN — hiệu ứng chỉ
+ *    được ĐỊNH NGHĨA nơi thật sự có con trỏ để rê. Thiếu sót là không thể xảy
+ *    ra vì chưa bao giờ có gì để mà thiếu.
+ *
+ *    ⚠️ `hover: hover` một mình là CHƯA ĐỦ: iPad cắm bàn phím Magic có trackpad
+ *       báo `hover: hover` nhưng đầu vào chính vẫn có thể là ngón tay. Cặp
+ *       `and (pointer: fine)` mới khoá chắc vào thiết bị có con trỏ thật.
+ *
+ * Lưu ý `.dock-magnify` bọc CẢ nút bánh răng / nút phụ nếu có: chỉ phần tử mang
+ * `.dock-magnify-item` mới tham gia hiệu ứng, nên đừng gắn class đó lên vạch
+ * ngăn (sẽ làm đứt chuỗi anh em).
+ * ───────────────────────────────────────────────────────────────────── */
+
+@media (hover: hover) and (pointer: fine) {
+  .dock-magnify {
+    --dock-mag-peak: 1.28;
+    --dock-mag-near: 1.12;
+    --dock-mag-far: 1.04;
+    --dock-mag-lift-peak: -8px;
+    --dock-mag-lift-near: -4px;
+    --dock-mag-lift-far: -1px;
+    --dock-mag-push-near: 6px;
+    --dock-mag-push-far: 3px;
+    --dock-mag-dur: 160ms;
+    --dock-mag-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .dock-magnify .dock-magnify-item {
+    transform-origin: bottom center;
+    transition:
+      transform var(--dock-mag-dur) var(--dock-mag-ease),
+      background-color var(--dock-mag-dur) var(--dock-mag-ease);
+  }
+
+  /* Icon đang rê — nở nhiều nhất. */
+  .dock-magnify .dock-magnify-item:hover {
+    transform: translateY(var(--dock-mag-lift-peak)) scale(var(--dock-mag-peak));
+  }
+
+  /* Kề ngay sau / ngay trước — nở vừa, đẩy ra xa tâm. */
+  .dock-magnify .dock-magnify-item:hover + .dock-magnify-item {
+    transform: translateX(var(--dock-mag-push-near)) translateY(var(--dock-mag-lift-near))
+      scale(var(--dock-mag-near));
+  }
+
+  .dock-magnify .dock-magnify-item:has(+ .dock-magnify-item:hover) {
+    transform: translateX(calc(-1 * var(--dock-mag-push-near)))
+      translateY(var(--dock-mag-lift-near)) scale(var(--dock-mag-near));
+  }
+
+  /* Cách hai ô — nở nhẹ. */
+  .dock-magnify .dock-magnify-item:hover + .dock-magnify-item + .dock-magnify-item {
+    transform: translateX(var(--dock-mag-push-far)) translateY(var(--dock-mag-lift-far))
+      scale(var(--dock-mag-far));
+  }
+
+  .dock-magnify .dock-magnify-item:has(+ .dock-magnify-item + .dock-magnify-item:hover) {
+    transform: translateX(calc(-1 * var(--dock-mag-push-far))) translateY(var(--dock-mag-lift-far))
+      scale(var(--dock-mag-far));
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * §2. BAY VÀO — icon nhô lên từ đáy khi thanh vừa trồi lên (chế độ tự ẩn).
+ *
+ * ⛔ CHỈ chạy ở pha `opening`. Mở xong (`active`) thì KHÔNG còn animation nào:
+ *    icon đứng yên tuyệt đối nên bấm không trượt và hiệu ứng phóng lân cận
+ *    chạy sạch. Đây là ý đồ, không phải thiếu sót — một dãy icon còn đang
+ *    nhúc nhích là dãy icon khó bấm.
+ *
+ * ⛔ KHÔNG dùng `filter: blur()` trong keyframe: filter phải vẽ lại toàn khung
+ *    mỗi frame, nhiều icon chạy song song là giật thấy rõ. `opacity` +
+ *    `transform` chạy thẳng trên GPU.
+ *
+ * `backwards` giữ icon ở trạng thái 0% suốt thời gian chờ tới lượt (stagger) —
+ * thiếu nó thì icon hiện đủ ngay rồi mới biến mất để bay vào, tức là nháy.
+ * ───────────────────────────────────────────────────────────────────── */
+
+@keyframes dock-icon-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.82);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dock-icon-enter {
+  transform-origin: bottom center;
+}
+
+/* Bám `nav[data-dock-state]` chứ KHÔNG bám `.dock-magnify`: hiệu ứng bay vào
+   phải chạy cả khi người dùng đã tắt phóng lân cận. */
+nav[data-dock-state='opening'] .dock-icon-enter {
+  animation: dock-icon-enter 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: var(--dock-icon-delay, 0ms);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * §3. VỆT SÁNG GỢI Ý — dấu hiệu duy nhất còn lại khi thanh đang tự ẩn.
+ *
+ * Không viền, không nền đặc: chỉ một quầng sáng khuếch tán + một sợi sáng 1px
+ * ở chính giữa mép dưới. Đủ để mắt nhận ra "có gì đó ở đây" mà không biến
+ * thành một thanh công cụ thứ hai.
+ *
+ * ⛔ `pointer-events: none` VĨNH VIỄN. Vệt sáng nằm đè lên đáy trang; cho nó
+ *    bắt sự kiện là nó nuốt mọi cú bấm vào vùng đó (nút nổi, thông báo…).
+ *    `Dock.tsx` phát hiện con trỏ bằng TOẠ ĐỘ chuột, không cần phần tử này.
+ *
+ * ⚠️ Bề rộng/chiều cao ở đây phải khớp `DOCK_TRIGGER_ZONE` trong `dock.theme.ts`.
+ * ───────────────────────────────────────────────────────────────────── */
+
+.dock-hint {
+  /* Cùng số đo với `DOCK_TRIGGER_ZONE` (120 × 22). */
+  --dock-hint-w: 120px;
+  --dock-hint-h: 22px;
+  --dock-hint-core-w: 88px;
+
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  z-index: 40;
+  width: var(--dock-hint-w);
+  height: var(--dock-hint-h);
+  transform: translateX(-50%);
+  pointer-events: none;
+
+  opacity: 1;
+  transition: opacity 450ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Thanh đã bung → tắt gợi ý, nếu không nó nằm chồng dưới chân thanh. */
+.dock-hint[data-hint-visible='false'] {
+  opacity: 0;
+}
+
+/* Lớp 1 — quầng sáng khuếch tán. Tràn ra ngoài khung một chút để không lộ mép. */
+.dock-hint::before {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: -30px;
+  right: -30px;
+  height: 40px;
+  background: radial-gradient(
+    ellipse at center bottom,
+    color-mix(in srgb, var(--color-teal-5) 45%, transparent) 0%,
+    color-mix(in srgb, var(--color-teal-5) 26%, transparent) 40%,
+    transparent 75%
+  );
+  /* Làm nhoè MỘT LẦN lúc vẽ, không nằm trong keyframe nào — xem §2. */
+  filter: blur(16px);
+}
+
+/* Lớp 2 — sợi sáng 1px ở tâm, hai đầu tan dần. */
+.dock-hint::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: calc(50% - var(--dock-hint-core-w) / 2);
+  width: var(--dock-hint-core-w);
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-teal-5) 40%, transparent),
+    color-mix(in srgb, var(--color-teal-5) 95%, transparent),
+    color-mix(in srgb, var(--color-teal-5) 40%, transparent),
+    transparent
+  );
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-teal-5) 50%, transparent);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * §4. Tôn trọng thiết lập GIẢM CHUYỂN ĐỘNG của hệ điều hành.
+ *
+ * Với người bị rối loạn tiền đình, chuyển động không mong muốn gây chóng mặt
+ * thật sự. Ở đây nhảy thẳng tới trạng thái cuối, KHÔNG chạy nhanh hơn.
+ * ───────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .dock-magnify .dock-magnify-item {
+    transition: none;
+    transform: none !important;
+  }
+
+  .dock-icon-enter {
+    animation: none !important;
+  }
+
+  .dock-hint {
+    transition: none;
+  }
+}

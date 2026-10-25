@@ -1,0 +1,9 @@
+#!/bin/sh
+# Kiểm tra định dạng commit message bằng commitlint (config-conventional).
+# Dùng chung config của admin/ cho mọi commit trong repo (ba package đều
+# dùng @commitlint/config-conventional nên tương đương).
+# Hook chạy ở gốc repo (không có config commitlint) → phải trỏ --config tới
+# admin/, nếu không commitlint báo "Please add rules" và chặn mọi commit.
+set -e
+root="$(git rev-parse --show-toplevel)"
+npx --prefix "$root/admin" commitlint --config "$root/admin/.commitlintrc.json" --edit "$1"

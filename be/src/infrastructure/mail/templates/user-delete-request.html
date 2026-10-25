@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yêu cầu xoá tài khoản</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f4f4f4;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        max-width: 600px;
+        margin: 40px auto;
+        background: #fff;
+        border-radius: 8px;
+        padding: 40px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+      }
+      p {
+        color: #555;
+        line-height: 1.6;
+      }
+      .grace-box {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-weight: bold;
+        margin: 16px 0;
+      }
+      .footer {
+        margin-top: 30px;
+        font-size: 12px;
+        color: #999;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🗑️ Yêu cầu xoá tài khoản</h1>
+      <p>Chúng tôi đã ghi nhận yêu cầu xoá tài khoản của bạn.</p>
+      <div class="grace-box">Tài khoản sẽ bị ẩn danh hoá vĩnh viễn vào: {{deletionGraceUntil}}</div>
+      <p>
+        Trong thời gian chờ, bạn KHÔNG thể đăng nhập. Nếu đây không phải là bạn, hoặc bạn đổi ý,
+        hãy huỷ yêu cầu ngay bằng mục "Huỷ yêu cầu xoá tài khoản" trong ứng dụng (nhập lại email +
+        mật khẩu) trước thời điểm trên.
+      </p>
+      <p>Sau thời điểm trên, dữ liệu cá nhân sẽ bị ghi đè và KHÔNG thể khôi phục.</p>
+      <div class="footer">
+        <p>Nếu bạn không yêu cầu xoá tài khoản, hãy huỷ ngay và đổi mật khẩu để bảo vệ tài khoản.</p>
+      </div>
+    </div>
+  </body>
+</html>

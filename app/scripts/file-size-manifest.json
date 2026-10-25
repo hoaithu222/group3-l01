@@ -1,0 +1,67 @@
+{
+  "doc": [
+    "Manifest của `scripts/check-file-size.mjs`. ⛔ Sửa file này, ĐỪNG nới trần trong script.",
+    "",
+    "`debt` — file ĐANG vượt trần từ trước khi có cổng kiểm. Nợ được phép tồn tại,",
+    "  ⛔ không được phép PHÌNH thêm: `max` là số dòng đo được LÚC KHAI, vượt quá là",
+    "  đỏ lại. Cùng vai với `floor` của `contrast-manifest.json` — không có nó thì một",
+    "  mục khai cho 208 dòng sẽ lặng lẽ tha luôn cho 400 sau vài vòng sửa.",
+    "  Trường: file (đường dẫn từ gốc repo) · max (số dòng lúc khai) · why (bắt buộc).",
+    "",
+    "⚠️ Trả xong nợ thì XOÁ mục đi — trình soát sẽ nhắc bằng cảnh báo, không tự dọn.",
+    "⚠️ File `*.styles.ts` · `*.types.ts` · `*.constants.ts` KHÔNG cần khai ở đây:",
+    "  chúng được miễn trừ theo hậu tố, lý do ghi ở đầu `check-file-size.mjs`."
+  ],
+  "debt": [
+    {
+      "file": "src/core/api/client.ts",
+      "max": 314,
+      "why": "Thực thể axios + hai interceptor. Phần nặng đã tách sẵn ra `client.helpers.ts`, `client.refresh.ts`, `client.types.ts`; chỗ còn lại chỉ có 3 hàm ngắn, phần dài là các khối chú thích ghi lý do từng bước (thứ tự interceptor, vì sao 401 ≠ mất sóng, vì sao không log token). Tách tiếp chỉ là đẩy chú thích sang file khác. Muốn giảm thật thì đưa khối LOG ra `client.logging.ts`. (p0-13 B11: +16 dòng gắn `X-Client-Platform`/`X-Device-Id` vào request interceptor — bắt buộc, thiếu 2 header này backend không bao giờ trả `refreshToken` trong body cho app. p1-02: +7 dòng `sanitizeLogUrl()` — mã mời nằm ngay trong URL, phải che kể cả khi `enableApiLogging` bật, app.md p1-02 §3.)"
+    },
+    {
+      "file": "src/shared/utils/style/cn.ts",
+      "max": 211,
+      "why": "`twMergeConfig` là một BẢNG khai báo nhóm class sinh từ token (`SPACING`, `RADIUS`, `CONTROL_HEIGHT`, `BREAKPOINTS`) — đúng loại 'dữ liệu chứ không phải logic' mà ba hậu tố kia được miễn trừ, chỉ là tên file không mang hậu tố đó. Logic thật vỏn vẹn một hàm `cn()`. Muốn giảm thì đưa bảng sang `cn.config.ts` và giữ `cn()` ở lại."
+    },
+    {
+      "file": "src/shared/ui/date-picker/date-picker.utils.ts",
+      "max": 181,
+      "why": "16 hàm THUẦN cho lưới lịch (dựng lưới tháng, thứ tự thứ trong tuần, khoảng ngày, nhãn tháng/thập kỷ), hàm dài nhất 12 dòng. Chúng vốn đã là phần tách ra để `Calendar.tsx` giữ dưới 200 dòng. Chia đôi lần nữa thì ranh giới sẽ là tuỳ tiện — và người sửa lịch phải mở hai file thay vì một."
+    },
+    {
+      "file": "src/core/api/client.helpers.ts",
+      "max": 157,
+      "why": "6 hàm đọc lỗi (lấy câu lỗi theo mã HTTP, đọc thân lỗi của API, đánh dấu lỗi đã hiện toast) cộng bảng khoá bí mật cần che khi log. Vượt 7 dòng, và mọi cách tách đều cắt ngang một nhóm hàm gọi lẫn nhau."
+    },
+    {
+      "file": "src/core/api/session.ts",
+      "max": 168,
+      "why": "Vòng đời phiên: đọc/ghi token, dọn phiên, làm mới. ⛔ Đừng tách `performRefresh` khỏi `purgeSession`: điều 6 của `AGENTS.md` — `unavailable` (mất sóng) KHÔNG được gộp với `unauthenticated` (phiên chết) — chỉ kiểm được khi đọc hai nhánh đó cạnh nhau. (p0-13 B11: +11 dòng gắn cùng 2 header `X-Client-Platform`/`X-Device-Id` vào lời gọi `fetch` trần của `performRefresh` — bắt buộc phải khớp với `client.ts`, nếu không refresh token mới sẽ quay lại rơi vào Set-Cookie thay vì body.)"
+    },
+    {
+      "file": "src/shared/utils/format/currency.utils.ts",
+      "max": 151,
+      "why": "Vượt ĐÚNG 1 dòng. `formatNumber` + `formatCurrency` dùng chung bộ hằng phân tách hàng nghìn và hàm giãn số mũ; tách ra là ba file cho hai hàm. Khai ở đây để mức 151 bị KHOÁ lại — thêm một tuỳ chọn định dạng nữa là đỏ và phải tách thật."
+    },
+    {
+      "file": "src/shared/constants/error-codes.ts",
+      "max": 236,
+      "why": "Bảng tra mã lỗi → câu tiếng Việt, thuần DỮ LIỆU (không có hậu tố `.constants.ts` nên không được miễn trừ tự động). Vượt trần do HAI lượt cộng dồn không cùng lúc: p0-05 (lượt trước) thêm 5 dòng ASSET_006..010 cho voice note/reissue-url/xoá-đang-gắn; nhìn trên đĩa đã có sẵn thêm một khối DEVICE_*/PUSH_*/NOTI_* (p0-06) commit song song trong cùng repo lúc lượt trước chạy. p1-02: +15 dòng WS_010..016/INV_001..007 (thành viên/lời mời) — đồng bộ với `be/src/core/utils/error.codes.ts` và bảng tương tự đã thêm ở `admin/src/shared/constants/error-codes.ts`, để lỗi 410/403/409 của luồng mời/moderation hiện đúng câu tiếng Việt thay vì rơi về câu HTTP chung chung. p1-03: +14 dòng `CH_001..012` (kênh) — cùng lý do đồng bộ với be.md p1-03 §8. p1-04: +25 dòng `MSG_001..017` (tin nhắn, kể cả `MSG_017` mới của BE — chuyển tiếp tới `directUserId` luôn `DENIED` vì hội thoại p1-05 chưa tồn tại) — cùng lý do đồng bộ với `be/src/core/utils/error.codes.ts`. p1-05 (lượt này, 2026-09-18): +15 dòng `CONV_001..013` (hội thoại 1-1 & nhóm) — cùng lý do đồng bộ với `be/src/core/utils/error.codes.ts`. Tách bảng message theo domain (auth/perm/asset/device/workspace/channel/message/...) là việc HỢP LÝ nhưng đụng vào một file nhiều module cùng ghi theo thời gian — để lại cho một lượt dọn dẹp riêng, tránh xung đột merge giữa các module không liên quan."
+    },
+    {
+      "file": "src/core/socket/socket.events.ts",
+      "max": 215,
+      "why": "Enum `SocketEvent` — thuần khai báo tên sự kiện Socket.IO (không có hậu tố `.constants.ts` nên không được miễn trừ tự động, cùng lý do đã ghi cho `error-codes.ts` ở trên). p1-05 (2026-09-18): +8 dòng `CONVERSATION_CREATED/UPDATED/MEMBER_UPDATED/REMOVED`/`READ_RECEIPT` (be.md p1-05 §6) — mỗi dòng là MỘT hợp đồng tên sự kiện dùng chung server/app, tách file sẽ phá vỡ nguồn-sự-thật-duy-nhất mà chính file này ghi ở đầu (\"⛔ Đừng viết chuỗi sự kiện tay ở nơi gọi\"). p1-06 (2026-09-19): +3 dòng `THREAD_SUBSCRIPTION_UPDATED` + hai chú thích payload của `THREAD_UPDATED`/`THREAD_SUBSCRIPTION_UPDATED` (be.md p1-06 §6) — cùng lý do. p6-04 (2026-09-19): +2 dòng `WALLET_UPDATED` (be.md p6-04 §6, payload không kèm số tiền) — cùng lý do. p1-09 (2026-09-19): +2 dòng `SAVED_UPDATED` (be.md p1-09 §6, payload `{ v, serverNow, messageId, saved }`) — cùng lý do. p1-08 (2026-09-19): +2 dòng `BLOCK_UPDATED` (be.md p1-08 §6, payload `{ v, serverNow, added?|removed? }`) — cùng lý do. p1-07 + p0-07 (2026-09-21): +10 dòng `NOTIFICATION_READ`, `UNREAD_SUMMARY_CHANGED` (be.md p1-07 §6/§15.5) và `CONFIG_UPDATED` (be.md p0-07 §6) — mỗi dòng là MỘT hợp đồng tên sự kiện dùng chung server/app, cùng lý do. p2-01 + p2-04 (2026-09-21): +26 dòng `CALL_INCOMING/ACCEPTED/ANSWERED_ELSEWHERE/DECLINED/CANCELLED/ENDED/PARTICIPANT_UPDATED` (be.md p2-01 §6) và `MEETING_INVITED/UPDATED/CANCELLED/ATTENDEE_REMOVED` (be.md p2-04 §6) kèm chú thích payload — cùng lý do. p4-05 (2026-09-25): +1 dòng `TASK_REVIEW_UPDATED` (be.md p4-05 §6, payload chỉ số đếm — không điểm/nhận xét) — cùng lý do. p4-04 (2026-09-25): +2 dòng `BOARD_RESCHEDULED` (be.md p4-04 §6) — cùng lý do. p6-06 (2026-09-25): +1 dòng `SKILL_UNLOCKED` (be.md p6-06 §6, `user:{id}`, chúc mừng huy hiệu kỹ năng) — cùng lý do. p6-08 (2026-09-27): +6 dòng `OFFER_UPDATED`/`OFFER_MESSAGE_CREATED`/`COMPANY_UPDATED` (be.md p6-08 §6, payload không tiêu đề/nội dung lời mời) — cùng lý do; mức 215 đã gồm 2 dòng `PORTFOLIO_BUILD_UPDATED` (p6-07) thêm trước đó chưa nâng trần."
+    },
+    {
+      "file": "src/shell/navigation/module-registry.ts",
+      "max": 154,
+      "why": "Bảng khai báo PHÂN HỆ (thuần dữ liệu, một mục ~9 dòng gồm chú thích lý do route/`name`/cờ), không có hậu tố `.constants.ts` nên không được miễn trừ tự động. Đang ở 144 dòng thì p6-05 (2026-09-27) thêm MỘT mục `o2o` (+10 dòng) → 154. Tách bảng ra nhiều file chỉ để bảng phân hệ (nguồn duy nhất cho thanh tab + ô tìm nhanh) không còn đọc một chỗ được. Mục tiếp theo nên tách bảng theo nhóm (`bar`/`menu`) thay vì nâng trần."
+    },
+    {
+      "file": "src/core/config/env.config.ts",
+      "max": 161,
+      "why": "Bảng biến môi trường: mỗi biến `EXPO_PUBLIC_*` bắt buộc MỘT dòng trong `RAW` (Metro thay chuỗi tĩnh, không đọc động được — luật 4 của AGENTS.md) và MỘT khoá `appConfig` kèm chú thích lý do/mặc định — thuần khai báo, không có hậu tố `.constants.ts` nên không được miễn trừ tự động. Đang ở 148 dòng thì p6-07 (2026-09-27) thêm `EXPO_PUBLIC_PORTFOLIO_BASE_URL` (+13 dòng: 1 dòng `RAW` + khoá `portfolioBaseUrl` suy từ `API_BASE_URL` khi trống, cùng cách `socketUrl`) → 161. Tách bảng ra nhiều file làm vỡ 'nguồn duy nhất của biến môi trường'; nên tách theo nhóm (mạng/đăng nhập/giám sát/tính năng) trong một lượt dọn riêng thay vì nâng trần tiếp."
+    }
+  ]
+}

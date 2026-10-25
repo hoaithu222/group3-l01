@@ -1,0 +1,22 @@
+// Mặt tiền của engine bảng trắng thuần TypeScript (p6-02). Không import React/RN/Skia/Expo ở bất kỳ file nào.
+export * from './binding';
+export * from './doc-schema';
+export * from './element-sanitize';
+export * from './element.constants';
+export type * from './element.types';
+export * from './elements';
+export * from './geometry';
+export * from './handles';
+export * from './hit-test';
+export * from './history';
+export * from './intersect';
+export * from './line';
+export * from './manipulate';
+export * from './manipulate-group';
+export * from './simplify';
+export * from './transform';
+export * from './yjs-adapter';
+export * from './yjs-arrange';
+export * from './yjs-meta';
+export * from './yjs-observe';
+export * from './z-order';

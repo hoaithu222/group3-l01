@@ -1,0 +1,13 @@
+{
+  // Cấu hình RIÊNG cho cổng `npm run typecheck` (không dùng cho editor/Metro — các nơi đó vẫn đọc `tsconfig.json`).
+  //
+  // ⛔ Khác `tsconfig.json` đúng MỘT chỗ: kiểu route đọc từ `.typecheck/` (do `scripts/typed-routes.mjs` dựng thẳng
+  //    từ cây `app/app/`), KHÔNG đọc `.expo/types/`. Lý do: trên Windows, Metro đang chạy sẽ ghi rác `/../src/**`
+  //    vào `.expo/types/router.d.ts` làm union `href` phình ra và `tsc` đỏ TS2590 ở mọi chỗ dùng `Href` — lỗi giả,
+  //    không phải lỗi mã. Xem chú thích đầu `scripts/typed-routes.mjs`.
+  //
+  // ⚠️ `include` KHÔNG được nhắc `.expo/types/**` (cả hai bảng route cùng khai `ExpoRouter.__routes` thì TS2717
+  //    "Subsequent property declarations must have the same type"). `include` ở file kế thừa GHI ĐÈ, không gộp.
+  "extends": "./tsconfig.json",
+  "include": ["**/*.ts", "**/*.tsx", ".typecheck/**/*.d.ts", "nativewind-env.d.ts"]
+}

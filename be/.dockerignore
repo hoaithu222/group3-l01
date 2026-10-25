@@ -1,0 +1,17 @@
+node_modules
+dist
+logs
+uploads
+coverage
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+.claude
+.p405-prisma
+plans
+docs
+scripts
+*.md
+.DS_Store

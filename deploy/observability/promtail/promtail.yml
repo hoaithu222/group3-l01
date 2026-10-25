@@ -1,0 +1,37 @@
+# Promtail (p0-11): thu log container Docker → Loki. Nhãn `service` = tên service compose (api-1, api-2, worker, nginx, admin, collab, redis…), `project` = superapp.
+# ⚠️ Promtail đã được Grafana đánh dấu EOL (thay bằng Grafana Alloy) — vẫn chạy được với Loki 3.x; kế hoạch P1: chuyển sang Alloy (cấu hình `loki.source.docker` tương đương).
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: warn
+
+positions:
+  filename: /positions/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 10s
+    relabel_configs:
+      # Chỉ container thuộc project compose `superapp` (app) và `superapp-livekit` (nếu chạy cùng VM) — bỏ Prometheus/Grafana… (tránh vòng log).
+      - source_labels: ["__meta_docker_container_label_com_docker_compose_project"]
+        regex: "superapp(-livekit)?"
+        action: keep
+      - source_labels: ["__meta_docker_container_label_com_docker_compose_service"]
+        target_label: service
+      - source_labels: ["__meta_docker_container_label_com_docker_compose_project"]
+        target_label: project
+      - source_labels: ["__meta_docker_container_name"]
+        regex: "/(.*)"
+        target_label: container
+    pipeline_stages:
+      # Log JSON (winston: level, message, requestId, userId…; nginx: status, request_id, uri…): trích `level` làm nhãn (ít giá trị), phần còn lại giữ trong dòng để LogQL `| json`.
+      - json:
+          expressions:
+            level: level
+      - labels:
+          level:

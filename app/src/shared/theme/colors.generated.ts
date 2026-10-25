@@ -1,0 +1,635 @@
+/** Sinh tự động từ colors.json. ⛔ ĐỪNG SỬA TAY. */
+
+export type ThemeColorKey =
+  | 'primary-1'
+  | 'primary-2'
+  | 'primary-3'
+  | 'primary-4'
+  | 'primary-5'
+  | 'primary-6'
+  | 'primary-7'
+  | 'primary-8'
+  | 'primary-9'
+  | 'primary-10'
+  | 'ink-1'
+  | 'ink-2'
+  | 'ink-3'
+  | 'ink-4'
+  | 'ink-5'
+  | 'ink-6'
+  | 'ink-7'
+  | 'ink-8'
+  | 'ink-9'
+  | 'ink-10'
+  | 'neutral-0'
+  | 'neutral-1'
+  | 'neutral-2'
+  | 'neutral-3'
+  | 'neutral-4'
+  | 'neutral-5'
+  | 'neutral-6'
+  | 'neutral-7'
+  | 'neutral-8'
+  | 'neutral-9'
+  | 'neutral-10'
+  | 'white-1'
+  | 'white-2'
+  | 'white-3'
+  | 'white-4'
+  | 'white-5'
+  | 'white-6'
+  | 'white-7'
+  | 'white-8'
+  | 'white-9'
+  | 'white-10'
+  | 'brand'
+  | 'bg-base'
+  | 'bg-1'
+  | 'bg-2'
+  | 'bg-3'
+  | 'bg-4'
+  | 'bg-input'
+  | 'bg-popup'
+  | 'bg-nav'
+  | 'bg-dialog'
+  | 'bg-skeleton'
+  | 'bg-ink-light'
+  | 'surface-primary'
+  | 'surface-secondary'
+  | 'surface-success'
+  | 'surface-info'
+  | 'surface-warning'
+  | 'surface-error'
+  | 'surface-neutral'
+  | 'bg-primary'
+  | 'bg-success'
+  | 'bg-warning'
+  | 'bg-error'
+  | 'fg-1'
+  | 'fg-2'
+  | 'fg-3'
+  | 'fg-4'
+  | 'fg-5'
+  | 'fg-inverse'
+  | 'fg-brand'
+  | 'fg-on-nav'
+  | 'fg-on-nav-muted'
+  | 'fg-on-nav-accent'
+  | 'fg-on-header'
+  | 'fg-on-header-muted'
+  | 'fg-on-popup'
+  | 'fg-on-dialog'
+  | 'fg-on-tooltip'
+  | 'fg-on-dialog-muted'
+  | 'success'
+  | 'info'
+  | 'warning'
+  | 'error'
+  | 'link'
+  | 'action-base'
+  | 'action-press'
+  | 'action-fg'
+  | 'action-tint'
+  | 'action-tint-strong'
+  | 'indicator-muted'
+  | 'action-accent'
+  | 'action-accent-fg'
+  | 'action-ink'
+  | 'action-ink-press'
+  | 'action-ink-fg'
+  | 'action-grey'
+  | 'action-grey-press'
+  | 'action-white'
+  | 'action-white-press'
+  | 'action-white-light'
+  | 'action-white-disabled'
+  | 'action-disabled'
+  | 'action-disabled-ink'
+  | 'action-disabled-fg'
+  | 'action-error'
+  | 'action-error-press'
+  | 'action-error-fg'
+  | 'action-warning'
+  | 'action-warning-press'
+  | 'action-warning-fg'
+  | 'action-success'
+  | 'action-success-press'
+  | 'action-success-fg'
+  | 'action-info'
+  | 'action-info-press'
+  | 'action-info-fg'
+  | 'border-1'
+  | 'border-2'
+  | 'border-strong'
+  | 'border-brand'
+  | 'border-brand-press'
+  | 'border-brand-subtle'
+  | 'border-ink'
+  | 'border-ink-press'
+  | 'border-ink-disabled'
+  | 'border-white'
+  | 'border-white-medium'
+  | 'border-error'
+  | 'border-error-subtle'
+  | 'border-warning'
+  | 'border-warning-subtle'
+  | 'border-info'
+  | 'border-info-subtle'
+  | 'border-success'
+  | 'border-success-subtle'
+  | 'divider-1'
+  | 'divider-2'
+  | 'overlay'
+  | 'disabled-1'
+  | 'disabled-2'
+  | 'nav-from'
+  | 'nav-to'
+  | 'header-from'
+  | 'header-to'
+  | 'header-border'
+  | 'bg-tooltip';
+
+export const THEME_COLOR_KEYS = [
+  'primary-1',
+  'primary-2',
+  'primary-3',
+  'primary-4',
+  'primary-5',
+  'primary-6',
+  'primary-7',
+  'primary-8',
+  'primary-9',
+  'primary-10',
+  'ink-1',
+  'ink-2',
+  'ink-3',
+  'ink-4',
+  'ink-5',
+  'ink-6',
+  'ink-7',
+  'ink-8',
+  'ink-9',
+  'ink-10',
+  'neutral-0',
+  'neutral-1',
+  'neutral-2',
+  'neutral-3',
+  'neutral-4',
+  'neutral-5',
+  'neutral-6',
+  'neutral-7',
+  'neutral-8',
+  'neutral-9',
+  'neutral-10',
+  'white-1',
+  'white-2',
+  'white-3',
+  'white-4',
+  'white-5',
+  'white-6',
+  'white-7',
+  'white-8',
+  'white-9',
+  'white-10',
+  'brand',
+  'bg-base',
+  'bg-1',
+  'bg-2',
+  'bg-3',
+  'bg-4',
+  'bg-input',
+  'bg-popup',
+  'bg-nav',
+  'bg-dialog',
+  'bg-skeleton',
+  'bg-ink-light',
+  'surface-primary',
+  'surface-secondary',
+  'surface-success',
+  'surface-info',
+  'surface-warning',
+  'surface-error',
+  'surface-neutral',
+  'bg-primary',
+  'bg-success',
+  'bg-warning',
+  'bg-error',
+  'fg-1',
+  'fg-2',
+  'fg-3',
+  'fg-4',
+  'fg-5',
+  'fg-inverse',
+  'fg-brand',
+  'fg-on-nav',
+  'fg-on-nav-muted',
+  'fg-on-nav-accent',
+  'fg-on-header',
+  'fg-on-header-muted',
+  'fg-on-popup',
+  'fg-on-dialog',
+  'fg-on-tooltip',
+  'fg-on-dialog-muted',
+  'success',
+  'info',
+  'warning',
+  'error',
+  'link',
+  'action-base',
+  'action-press',
+  'action-fg',
+  'action-tint',
+  'action-tint-strong',
+  'indicator-muted',
+  'action-accent',
+  'action-accent-fg',
+  'action-ink',
+  'action-ink-press',
+  'action-ink-fg',
+  'action-grey',
+  'action-grey-press',
+  'action-white',
+  'action-white-press',
+  'action-white-light',
+  'action-white-disabled',
+  'action-disabled',
+  'action-disabled-ink',
+  'action-disabled-fg',
+  'action-error',
+  'action-error-press',
+  'action-error-fg',
+  'action-warning',
+  'action-warning-press',
+  'action-warning-fg',
+  'action-success',
+  'action-success-press',
+  'action-success-fg',
+  'action-info',
+  'action-info-press',
+  'action-info-fg',
+  'border-1',
+  'border-2',
+  'border-strong',
+  'border-brand',
+  'border-brand-press',
+  'border-brand-subtle',
+  'border-ink',
+  'border-ink-press',
+  'border-ink-disabled',
+  'border-white',
+  'border-white-medium',
+  'border-error',
+  'border-error-subtle',
+  'border-warning',
+  'border-warning-subtle',
+  'border-info',
+  'border-info-subtle',
+  'border-success',
+  'border-success-subtle',
+  'divider-1',
+  'divider-2',
+  'overlay',
+  'disabled-1',
+  'disabled-2',
+  'nav-from',
+  'nav-to',
+  'header-from',
+  'header-to',
+  'header-border',
+  'bg-tooltip',
+] as const satisfies readonly ThemeColorKey[];
+
+/**
+ * Màu chế độ SÁNG, dạng `#RRGGBB`.
+ *
+ * ⚠️ Đây là màu ĐẶC. Token vốn có độ trong bị cắt phần alpha ở đây vì phần lớn
+ * prop màu thô của React Native (`tabBarActiveTintColor`, `<Ionicons color>`)
+ * chỉ nhận màu đặc. Cần cả alpha thì tra thêm `TOKEN_ALPHA` bên dưới.
+ */
+export const LIGHT_COLORS: Record<ThemeColorKey, string> = {
+  'primary-1': '#F0EBF5',
+  'primary-2': '#E3DCEB',
+  'primary-3': '#C4B8D0',
+  'primary-4': '#6B5482',
+  'primary-5': '#230045',
+  'primary-6': '#1C0037',
+  'primary-7': '#16002C',
+  'primary-8': '#120024',
+  'primary-9': '#0F001D',
+  'primary-10': '#0A0014',
+  'ink-1': '#F1F1F1',
+  'ink-2': '#E1E1E1',
+  'ink-3': '#969696',
+  'ink-4': '#666666',
+  'ink-5': '#1A1A1A',
+  'ink-6': '#181818',
+  'ink-7': '#121212',
+  'ink-8': '#0E0E0E',
+  'ink-9': '#0B0B0B',
+  'ink-10': '#070707',
+  'neutral-0': '#FFFFFF',
+  'neutral-1': '#FBFBFB',
+  'neutral-2': '#F6F6F6',
+  'neutral-3': '#EEEEEE',
+  'neutral-4': '#E6E6E6',
+  'neutral-5': '#D9D9D9',
+  'neutral-6': '#C5C5C5',
+  'neutral-7': '#9A9A9A',
+  'neutral-8': '#777777',
+  'neutral-9': '#5B5B5B',
+  'neutral-10': '#1A1A1A',
+  'white-1': '#FFFFFF',
+  'white-2': '#FFFFFF',
+  'white-3': '#FFFFFF',
+  'white-4': '#FFFFFF',
+  'white-5': '#FFFFFF',
+  'white-6': '#FFFFFF',
+  'white-7': '#FFFFFF',
+  'white-8': '#FFFFFF',
+  'white-9': '#FFFFFF',
+  'white-10': '#FFFFFF',
+  'brand': '#230045',
+  'bg-base': '#F0F5F5',
+  'bg-1': '#FFFFFF',
+  'bg-2': '#FBFBFB',
+  'bg-3': '#F6F6F6',
+  'bg-4': '#EEEEEE',
+  'bg-input': '#FFFFFF',
+  'bg-popup': '#FFFFFF',
+  'bg-nav': '#FFFFFF',
+  'bg-dialog': '#FFFFFF',
+  'bg-skeleton': '#E6EBEA',
+  'bg-ink-light': '#F1F1F1',
+  'surface-primary': '#F0EBF5',
+  'surface-secondary': '#F7F3EB',
+  'surface-success': '#E6F4E7',
+  'surface-info': '#E7EDF8',
+  'surface-warning': '#FDEFE6',
+  'surface-error': '#FBE6E6',
+  'surface-neutral': '#F6F6F6',
+  'bg-primary': '#230045',
+  'bg-success': '#00810E',
+  'bg-warning': '#D35801',
+  'bg-error': '#C30000',
+  'fg-1': '#1A1A1A',
+  'fg-2': '#666666',
+  'fg-3': '#969696',
+  'fg-4': '#C5C5C5',
+  'fg-5': '#D9D9D9',
+  'fg-inverse': '#FFFFFF',
+  'fg-brand': '#230045',
+  'fg-on-nav': '#FFFFFF',
+  'fg-on-nav-muted': '#FFFFFF',
+  'fg-on-nav-accent': '#FFFFFF',
+  'fg-on-header': '#1A1A1A',
+  'fg-on-header-muted': '#666666',
+  'fg-on-popup': '#1A1A1A',
+  'fg-on-dialog': '#1A1A1A',
+  'fg-on-tooltip': '#FFFFFF',
+  'fg-on-dialog-muted': '#666666',
+  'success': '#00810E',
+  'info': '#1043A9',
+  'warning': '#D35801',
+  'error': '#C30000',
+  'link': '#1043A9',
+  'action-base': '#230045',
+  'action-press': '#1C0037',
+  'action-fg': '#FFFFFF',
+  'action-tint': '#F0EBF5',
+  'action-tint-strong': '#C4B8D0',
+  'indicator-muted': '#C4B8D0',
+  'action-accent': '#B18535',
+  'action-accent-fg': '#1A1A1A',
+  'action-ink': '#1A1A1A',
+  'action-ink-press': '#181818',
+  'action-ink-fg': '#FFFFFF',
+  'action-grey': '#EEEEEE',
+  'action-grey-press': '#9A9A9A',
+  'action-white': '#FFFFFF',
+  'action-white-press': '#FFFFFF',
+  'action-white-light': '#FFFFFF',
+  'action-white-disabled': '#FFFFFF',
+  'action-disabled': '#E6E6E6',
+  'action-disabled-ink': '#E1E1E1',
+  'action-disabled-fg': '#969696',
+  'action-error': '#C30000',
+  'action-error-press': '#AE0000',
+  'action-error-fg': '#FFFFFF',
+  'action-warning': '#D35801',
+  'action-warning-press': '#BB4E01',
+  'action-warning-fg': '#FFFFFF',
+  'action-success': '#00810E',
+  'action-success-press': '#00720C',
+  'action-success-fg': '#FFFFFF',
+  'action-info': '#1043A9',
+  'action-info-press': '#0E3B96',
+  'action-info-fg': '#FFFFFF',
+  'border-1': '#E6E6E6',
+  'border-2': '#D9D9D9',
+  'border-strong': '#969696',
+  'border-brand': '#230045',
+  'border-brand-press': '#1C0037',
+  'border-brand-subtle': '#6B5482',
+  'border-ink': '#1A1A1A',
+  'border-ink-press': '#181818',
+  'border-ink-disabled': '#E1E1E1',
+  'border-white': '#FFFFFF',
+  'border-white-medium': '#FFFFFF',
+  'border-error': '#C30000',
+  'border-error-subtle': '#F3B0B0',
+  'border-warning': '#D35801',
+  'border-warning-subtle': '#F8CEB0',
+  'border-info': '#1043A9',
+  'border-info-subtle': '#B6C7EA',
+  'border-success': '#00810E',
+  'border-success-subtle': '#B0DCB5',
+  'divider-1': '#EEEEEE',
+  'divider-2': '#E6E6E6',
+  'overlay': '#1A1A1A',
+  'disabled-1': '#E6E6E6',
+  'disabled-2': '#F6F6F6',
+  'nav-from': '#5E3586',
+  'nav-to': '#26014A',
+  'header-from': '#BAA6CD',
+  'header-to': '#F0F5F5',
+  'header-border': '#E3DCEB',
+  'bg-tooltip': '#1C0037',
+};
+
+/** Màu chế độ TỐI, dạng `#RRGGBB`. */
+export const DARK_COLORS: Record<ThemeColorKey, string> = {
+  'primary-1': '#F0EBF5',
+  'primary-2': '#E3DCEB',
+  'primary-3': '#C4B8D0',
+  'primary-4': '#6B5482',
+  'primary-5': '#230045',
+  'primary-6': '#1C0037',
+  'primary-7': '#16002C',
+  'primary-8': '#120024',
+  'primary-9': '#0F001D',
+  'primary-10': '#0A0014',
+  'ink-1': '#F1F1F1',
+  'ink-2': '#E1E1E1',
+  'ink-3': '#969696',
+  'ink-4': '#666666',
+  'ink-5': '#1A1A1A',
+  'ink-6': '#181818',
+  'ink-7': '#121212',
+  'ink-8': '#0E0E0E',
+  'ink-9': '#0B0B0B',
+  'ink-10': '#070707',
+  'neutral-0': '#FFFFFF',
+  'neutral-1': '#FBFBFB',
+  'neutral-2': '#F6F6F6',
+  'neutral-3': '#EEEEEE',
+  'neutral-4': '#E6E6E6',
+  'neutral-5': '#D9D9D9',
+  'neutral-6': '#C5C5C5',
+  'neutral-7': '#9A9A9A',
+  'neutral-8': '#777777',
+  'neutral-9': '#5B5B5B',
+  'neutral-10': '#1A1A1A',
+  'white-1': '#FFFFFF',
+  'white-2': '#FFFFFF',
+  'white-3': '#FFFFFF',
+  'white-4': '#FFFFFF',
+  'white-5': '#FFFFFF',
+  'white-6': '#FFFFFF',
+  'white-7': '#FFFFFF',
+  'white-8': '#FFFFFF',
+  'white-9': '#FFFFFF',
+  'white-10': '#FFFFFF',
+  'brand': '#A976DD',
+  'bg-base': '#070A0A',
+  'bg-1': '#1E2826',
+  'bg-2': '#2A3734',
+  'bg-3': '#354441',
+  'bg-4': '#40504D',
+  'bg-input': '#1E2826',
+  'bg-popup': '#2A3734',
+  'bg-nav': '#141B1A',
+  'bg-dialog': '#232E2C',
+  'bg-skeleton': '#2E3B38',
+  'bg-ink-light': '#333F3C',
+  'surface-primary': '#251633',
+  'surface-secondary': '#33291A',
+  'surface-success': '#14331F',
+  'surface-info': '#16294A',
+  'surface-warning': '#3A2A10',
+  'surface-error': '#3B1A1A',
+  'surface-neutral': '#313E3B',
+  'bg-primary': '#A976DD',
+  'bg-success': '#3DD68C',
+  'bg-warning': '#FFB020',
+  'bg-error': '#FF6B6B',
+  'fg-1': '#F2F6F4',
+  'fg-2': '#B7C4C0',
+  'fg-3': '#83918C',
+  'fg-4': '#66736F',
+  'fg-5': '#4E5A57',
+  'fg-inverse': '#08120F',
+  'fg-brand': '#AB76E0',
+  'fg-on-nav': '#FFFFFF',
+  'fg-on-nav-muted': '#FFFFFF',
+  'fg-on-nav-accent': '#FFFFFF',
+  'fg-on-header': '#F2F6F4',
+  'fg-on-header-muted': '#A9B8B4',
+  'fg-on-popup': '#F2F6F4',
+  'fg-on-dialog': '#F2F6F4',
+  'fg-on-tooltip': '#140820',
+  'fg-on-dialog-muted': '#A9B8B4',
+  'success': '#4ADE9B',
+  'info': '#7DB3FF',
+  'warning': '#FFBE45',
+  'error': '#FF7B7B',
+  'link': '#7DB3FF',
+  'action-base': '#A976DD',
+  'action-press': '#BB8FE7',
+  'action-fg': '#140423',
+  'action-tint': '#251633',
+  'action-tint-strong': '#341E4A',
+  'indicator-muted': '#3E2656',
+  'action-accent': '#F0B84B',
+  'action-accent-fg': '#1A1A1A',
+  'action-ink': '#E8EEEC',
+  'action-ink-press': '#C7D2CE',
+  'action-ink-fg': '#0B1211',
+  'action-grey': '#2E3B38',
+  'action-grey-press': '#42514D',
+  'action-white': '#FFFFFF',
+  'action-white-press': '#FFFFFF',
+  'action-white-light': '#FFFFFF',
+  'action-white-disabled': '#FFFFFF',
+  'action-disabled': '#24302D',
+  'action-disabled-ink': '#26332F',
+  'action-disabled-fg': '#7C8A86',
+  'action-error': '#FF6B6B',
+  'action-error-press': '#E05555',
+  'action-error-fg': '#1F0404',
+  'action-warning': '#FFB020',
+  'action-warning-press': '#E09A16',
+  'action-warning-fg': '#2E1B00',
+  'action-success': '#3DD68C',
+  'action-success-press': '#2FB876',
+  'action-success-fg': '#032516',
+  'action-info': '#6BA8FF',
+  'action-info-press': '#4F8FE6',
+  'action-info-fg': '#041631',
+  'border-1': '#3C4C48',
+  'border-2': '#4E5E5A',
+  'border-strong': '#697874',
+  'border-brand': '#A976DD',
+  'border-brand-press': '#BB8FE7',
+  'border-brand-subtle': '#432C5A',
+  'border-ink': '#E8EEEC',
+  'border-ink-press': '#FFFFFF',
+  'border-ink-disabled': '#35423F',
+  'border-white': '#FFFFFF',
+  'border-white-medium': '#FFFFFF',
+  'border-error': '#FF6B6B',
+  'border-error-subtle': '#5A2828',
+  'border-warning': '#FFB020',
+  'border-warning-subtle': '#5A421C',
+  'border-info': '#6BA8FF',
+  'border-info-subtle': '#274169',
+  'border-success': '#3DD68C',
+  'border-success-subtle': '#234E3A',
+  'divider-1': '#2F3D39',
+  'divider-2': '#3C4C48',
+  'overlay': '#040A09',
+  'disabled-1': '#FFFFFF',
+  'disabled-2': '#FFFFFF',
+  'nav-from': '#2C1246',
+  'nav-to': '#120520',
+  'header-from': '#241433',
+  'header-to': '#070A0A',
+  'header-border': '#322044',
+  'bg-tooltip': '#E5DCED',
+};
+
+/** Độ trong gốc của những token KHÔNG đục. Token không có tên ở đây ⇒ alpha = 1. */
+export const TOKEN_ALPHA: Partial<Record<ThemeColorKey, { light: number; dark: number }>> = {
+  'white-1': { light: 0.102, dark: 0.102 },
+  'white-2': { light: 0.2, dark: 0.2 },
+  'white-3': { light: 0.302, dark: 0.302 },
+  'white-4': { light: 0.4, dark: 0.4 },
+  'white-5': { light: 0.502, dark: 0.502 },
+  'white-6': { light: 0.6, dark: 0.6 },
+  'white-7': { light: 0.702, dark: 0.702 },
+  'white-8': { light: 0.8, dark: 0.8 },
+  'white-9': { light: 0.929, dark: 0.929 },
+  'bg-popup': { light: 0.98, dark: 0.98 },
+  'bg-nav': { light: 0.94, dark: 0.94 },
+  'bg-primary': { light: 0.102, dark: 0.102 },
+  'bg-success': { light: 0.102, dark: 0.102 },
+  'bg-warning': { light: 0.102, dark: 0.102 },
+  'bg-error': { light: 0.102, dark: 0.102 },
+  'fg-on-nav-muted': { light: 0.8, dark: 0.8 },
+  'action-white-press': { light: 0.6, dark: 0.6 },
+  'action-white-light': { light: 0.4, dark: 0.4 },
+  'action-white-disabled': { light: 0.8, dark: 0.8 },
+  'border-white-medium': { light: 0.6, dark: 0.6 },
+  'overlay': { light: 0.8, dark: 0.82 },
+  'disabled-1': { light: 1, dark: 0.08 },
+  'disabled-2': { light: 1, dark: 0.04 },
+};

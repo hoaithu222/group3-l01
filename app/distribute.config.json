@@ -1,0 +1,58 @@
+{
+  "$doc": "docs/deploy-firebase-app-distribution.md",
+  "defaultTarget": "internal",
+  "targets": {
+    "internal": {
+      "description": "Super App — tester nội bộ (Firebase project super-app-be1df)",
+      "projectId": "super-app-be1df",
+      "appId": "1:567331116640:android:39b0b835944d965fdd9505",
+      "groups": ["superapp-testers"],
+      "testers": [],
+      "abi": "arm64-v8a",
+      "artifact": "android/app/build/outputs/apk/release/app-release.apk",
+      "env": {
+        "EXPO_PUBLIC_ENV": "staging",
+        "EXPO_PUBLIC_API_BASE_URL": "https://api-production-9c319.up.railway.app/api/v1",
+        "EXPO_PUBLIC_SOCKET_URL": "https://api-production-9c319.up.railway.app",
+        "EXPO_PUBLIC_SOCKET_PATH": "/socket.io",
+        "EXPO_PUBLIC_API_TIMEOUT": "30000",
+        "EXPO_PUBLIC_ENABLE_ERROR_TOAST": "true",
+        "EXPO_PUBLIC_ENABLE_API_LOGGING": "false",
+        "EXPO_PUBLIC_API_LOG_PAYLOAD": "false",
+        "EXPO_PUBLIC_ENABLE_REFRESH_TOKEN": "true",
+        "EXPO_PUBLIC_AUTH_ENABLED": "true",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "567331116640-5tn00t8tmcah5gdj6qonj66quel83ga1.apps.googleusercontent.com"
+      },
+      "googleServicesFile": "google-services.json",
+      "account": "",
+      "credentialFile": "",
+      "credentialEnv": "SUPERAPP_DISTRIBUTE_SA_INTERNAL"
+    },
+    "khach-hang": {
+      "description": "MẪU — Firebase project của account khác. Điền projectId + appId rồi dùng.",
+      "projectId": "DIEN_PROJECT_ID",
+      "appId": "DIEN_APP_ID",
+      "groups": ["testers"],
+      "testers": [],
+      "abi": "arm64-v8a",
+      "artifact": "android/app/build/outputs/apk/release/app-release.apk",
+      "env": {
+        "EXPO_PUBLIC_ENV": "staging",
+        "EXPO_PUBLIC_API_BASE_URL": "https://api-production-9c319.up.railway.app/api/v1",
+        "EXPO_PUBLIC_SOCKET_URL": "https://api-production-9c319.up.railway.app",
+        "EXPO_PUBLIC_SOCKET_PATH": "/socket.io",
+        "EXPO_PUBLIC_API_TIMEOUT": "30000",
+        "EXPO_PUBLIC_ENABLE_ERROR_TOAST": "true",
+        "EXPO_PUBLIC_ENABLE_API_LOGGING": "false",
+        "EXPO_PUBLIC_API_LOG_PAYLOAD": "false",
+        "EXPO_PUBLIC_ENABLE_REFRESH_TOKEN": "true",
+        "EXPO_PUBLIC_AUTH_ENABLED": "true",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": ""
+      },
+      "googleServicesFile": "",
+      "account": "",
+      "credentialFile": "firebase-khachhang.service-account.json",
+      "credentialEnv": "SUPERAPP_DISTRIBUTE_SA_KHACHHANG"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+node_modules
+dist
+coverage
+logs
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+tests
+# Bundle editor (Vite/Tiptap) do package `collab/editor-web` tự build và commit sang app/assets — KHÔNG đưa vào image server.
+editor-web
+scripts
+*.md
+.DS_Store

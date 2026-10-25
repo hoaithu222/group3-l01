@@ -1,0 +1,166 @@
+{
+  "doc": [
+    "Manifest của `scripts/check-contrast.mjs`. ⛔ Sửa file này, ĐỪNG hạ ngưỡng trong script.",
+    "",
+    "`pairs` — cặp nền+chữ mà trình soát KHÔNG tự ghép được, phải khai tay.",
+    "  Trình soát chỉ ghép được khi nền và chữ nằm cùng một chuỗi class hoặc cùng",
+    "  một object của `tv()`. Khuôn phổ biến nhất của repo lại là nền ở slot GỐC",
+    "  còn màu chữ ở object BIẾN THỂ — hai object khác nhau. Khai ở đây là biến",
+    "  những con số đo tay nằm trong chú thích thành thứ được TÍNH LẠI mỗi lần chạy.",
+    "  Trường: bg · fg · kind (text | large-text | non-text) · over (nền nằm dưới,",
+    "  bắt buộc khi bg có sẵn độ trong) · where (chỉ để đọc) · why.",
+    "",
+    "`allow` — ngoại lệ CÓ CHỦ Ý. Mỗi mục phải nói rõ VÌ SAO.",
+    "  `floor` là tỉ lệ đo được lúc khai: tụt xuống dưới nữa thì ngoại lệ hết hiệu",
+    "  lực và cặp lại đỏ. Không có `floor` nghĩa là cặp này không có thật (trình",
+    "  soát ghép nhầm hai slot ANH EM), nên không có số nào để canh.",
+    "",
+    "`mutedText.allow` — chỗ dùng chữ MỜ (`text-fg-3|4|5`, không đạt 4.5:1 trên nền nào) được phép tồn tại.",
+    "  Trường: file (từ gốc `app/`) · max (số chỗ dùng lúc khai — vượt là đỏ lại, KHÔNG được nâng cho qua) · why (bắt buộc).",
+    "  Hai loại mục: (1) chữ GIỮ CHỖ thật (placeholder, ngày ngoài tháng) — vĩnh viễn;",
+    "  (2) NỢ ở vùng đang do agent khác sửa dở — ghi rõ \"NỢ\" và phải xoá khi vùng đó xong. Trả xong thì XOÁ mục (script nhắc bằng cảnh báo)."
+  ],
+  "pairs": [
+    {
+      "bg": "nav-to",
+      "fg": "fg-on-nav-accent",
+      "kind": "text",
+      "where": "src/shared/ui/navigation/bottom-nav.styles.ts",
+      "why": "Nhãn tab ĐANG MỞ. Nền ở slot `root`, màu chữ ở biến thể `selected` ⇒ hai object khác nhau, trình soát không tự ghép được. Đây đúng lớp lỗi 'đúng ở chế độ sáng, hỏng ở chế độ tối' mà thanh tab từng dính."
+    },
+    {
+      "bg": "nav-to",
+      "fg": "fg-on-nav-muted",
+      "kind": "non-text",
+      "over": "nav-to",
+      "where": "src/shared/ui/navigation/bottom-nav.styles.ts",
+      "why": "ICON tab KHÔNG mở (nhãn đã chuyển sang trắng 100%, xem `bottom-nav.styles.ts`). Icon là hình phi văn bản ⇒ ngưỡng 3:1, và trắng 80% trên tâm dải (`nav-from`) đo 3.41:1 nên đạt."
+    },
+    {
+      "bg": "nav-from",
+      "fg": "fg-on-nav-muted",
+      "kind": "non-text",
+      "over": "nav-from",
+      "where": "src/shared/ui/navigation/bottom-nav.styles.ts",
+      "why": "ICON tab KHÔNG mở (nhãn đã chuyển sang trắng 100%, xem `bottom-nav.styles.ts`). Icon là hình phi văn bản ⇒ ngưỡng 3:1, và trắng 80% trên tâm dải (`nav-from`) đo 3.41:1 nên đạt."
+    },
+    {
+      "bg": "surface-primary",
+      "fg": "fg-2",
+      "kind": "text",
+      "where": "src/shared/ui/alert/alert.styles.ts · AlertCloseButton.tsx",
+      "why": "Thân alert (`description`) và nút đóng nằm ở slot GỐC, còn nền tông nằm ở biến thể `tone`. Chú thích trong `AlertCloseButton.tsx` đo tay 4.80–5.17:1 cho bốn tông — bốn dòng dưới đây giữ cho con số đó không mục."
+    },
+    {
+      "bg": "surface-success",
+      "fg": "fg-2",
+      "kind": "text",
+      "where": "src/shared/ui/alert/alert.styles.ts · AlertCloseButton.tsx",
+      "why": "Xem mục `surface-primary` + `fg-2`."
+    },
+    {
+      "bg": "surface-warning",
+      "fg": "fg-2",
+      "kind": "text",
+      "where": "src/shared/ui/alert/alert.styles.ts · AlertCloseButton.tsx",
+      "why": "Xem mục `surface-primary` + `fg-2`."
+    },
+    {
+      "bg": "surface-error",
+      "fg": "fg-2",
+      "kind": "text",
+      "where": "src/shared/ui/alert/alert.styles.ts · AlertCloseButton.tsx",
+      "why": "Xem mục `surface-primary` + `fg-2`."
+    },
+    {
+      "bg": "bg-1",
+      "fg": "fg-2",
+      "kind": "text",
+      "where": "list-item.styles.ts · EmptyState.tsx · input.styles.ts · Divider.tsx",
+      "why": "Chữ phụ trên THẺ — cặp bị đo tay lại nhiều nhất trong repo (`fg-3` chỉ 2.96:1 nên đã đổi sang `fg-2`, 5.74:1). Nền do component cha đổ, màu chữ do component con khai ⇒ khác file, trình soát không thấy."
+    },
+    {
+      "bg": "bg-base",
+      "fg": "fg-1",
+      "kind": "text",
+      "where": "src/shared/ui/screen · mọi màn hình",
+      "why": "Chữ chính đặt thẳng lên nền MÀN HÌNH (không có thẻ). Nền đến từ `Screen`, chữ đến từ màn hình ⇒ luôn ở hai file khác nhau."
+    },
+    {
+      "bg": "bg-base",
+      "fg": "fg-2",
+      "kind": "text",
+      "where": "Divider.tsx · mọi màn dùng Divider trên nền màn hình",
+      "why": "Chữ phụ trên nền màn hình — `fg-4` ở đây chỉ 1.57:1, đã phải đổi sang `fg-2` (5.22:1). Giữ con số đó khỏi mục."
+    },
+    {
+      "bg": "nav-from",
+      "fg": "fg-on-nav",
+      "kind": "text",
+      "over": "nav-from",
+      "where": "src/shared/ui/navigation/bottom-nav.styles.ts",
+      "why": "Nhãn tab KHÔNG mở, trắng 100%. `nav-from` là TÂM dải toả tròn = đúng chỗ tab GIỮA đứng, nên đây là điểm xấu nhất của cả thanh."
+    },
+    {
+      "bg": "nav-to",
+      "fg": "fg-on-nav",
+      "kind": "text",
+      "over": "nav-to",
+      "where": "src/shared/ui/navigation/bottom-nav.styles.ts",
+      "why": "Cùng nhãn đó ở RÌA thanh. Nhãn vắt qua cả dải nên phải đạt ở cả hai đầu."
+    },
+    {
+      "bg": "bg-primary",
+      "fg": "fg-1",
+      "kind": "text",
+      "over": "bg-dialog",
+      "where": "src/shared/ui/list/list-item.styles.ts",
+      "why": "Nhãn dòng ĐANG CHỌN của `SelectSheet`. Nền tint 10% nằm trên nền tấm `bg-dialog` — có độ trong nên trình soát tự bỏ qua, phải khai `over` thì mới đo được. Đo lúc khai: 14.53:1 sáng · 10.47:1 tối (bảng màu tối dựng lại 2026-09-09 — thẻ sáng lên nên tỉ số tụt, vẫn dư ngưỡng)."
+    }
+  ],
+  "allow": [
+    {
+      "bg": "surface-warning",
+      "fg": "warning",
+      "modes": [
+        "light"
+      ],
+      "floor": 3.61,
+      "why": "Lệch chuẩn CÓ CHỦ Ý, đã ghi trong `src/shared/ui/AGENTS.md` §'Luật khi thiết kế và tương phản đá nhau': `warning` = #D35801 là màu do thiết kế của ngân hàng chỉ định, giữ nguyên. Bù bằng cỡ chữ ≥ 16 + `font-semibold` + luôn kèm biểu tượng (`AlertIcon.tsx`), để MÀU không phải dấu hiệu duy nhất. Chế độ tối đạt ngưỡng nên chỉ tha ở chế độ sáng."
+    },
+    {
+      "bg": "action-warning",
+      "fg": "action-warning-fg",
+      "modes": [
+        "light"
+      ],
+      "floor": 4.06,
+      "why": "Cùng một quyết định với mục trên: nút/huy hiệu cảnh báo là chữ trắng trên #D35801 = 4.06:1. Màu nền do thiết kế chỉ định; chữ đã là màu tương phản cao nhất có thể (trắng). Chế độ tối đảo sang nền nhạt + chữ sẫm nên đạt."
+    },
+    {
+      "bg": "surface-success",
+      "fg": "success",
+      "floor": 4.45,
+      "why": "Cùng chính sách với `warning` (3.61:1) đã ghi trong `src/shared/ui/AGENTS.md`: MÀU do thiết kế chỉ định thì giữ, chỉ CẶP mới đổi phần chữ — mà ở đây nền là nền tông bắt buộc. Thiếu 0.05. Bù: `Alert` luôn có icon theo tông, `Badge` soft luôn có viền `-subtle`. ⚠️ `info` 7.45 và `error` 5.29 đều đạt, nên đây là ca riêng của `success`, không phải chính sách chung."
+    }
+  ],
+  "mutedText": {
+    "allow": [
+      {
+        "file": "src/shared/ui/date-picker/date-picker.styles.ts",
+        "max": 3,
+        "why": "Hai chỗ là ngày NGOÀI tháng đang xem (`outside`) — chủ ý mờ hơn ngày trong tháng, không phải nội dung cần đọc; `fg-3` chứ không `fg-4` (1.73:1) đã đo trong chú thích. Chỗ thứ ba là giá trị RỖNG của ô chọn ngày = placeholder."
+      },
+      {
+        "file": "src/shared/ui/pin/pin.styles.ts",
+        "max": 1,
+        "why": "Ký tự giữ chỗ của ô PIN (`placeholder`) — biến mất ngay khi người dùng gõ; token gần nhất với màu bản vẽ, xem chú thích ở đó."
+      },
+      {
+        "file": "src/shared/ui/select/Select.tsx",
+        "max": 1,
+        "why": "Chữ placeholder của ô chọn khi chưa chọn gì (`placeholderInk`) — cùng bậc với placeholder của `Input`."
+      }
+    ]
+  }
+}

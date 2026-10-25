@@ -1,0 +1,61 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+# Bảng route riêng cho cổng typecheck — sinh bởi scripts/typed-routes.mjs (xem chú thích ở đó)
+.typecheck/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Firebase — cấu hình của project + khoá quản trị. ⛔ KHÔNG commit (xem docs/deploy-firebase-app-distribution.md).
+#  · `GoogleService-Info.plist` / `google-services.json`: cấu hình client (chứa API key) — dự án coi là secret,
+#    đưa vào build qua biến `GOOGLE_SERVICES_JSON` (xem `.env.example`).
+#  · `*service-account*.json`: khoá quản trị Firebase. Script `distribute-android.mjs` CHẶN tên file khác
+#    mẫu này — đặt tên khác là lọt rule và commit lộ khoá.
+GoogleService-Info.plist
+google-services.json
+*service-account*.json
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+firebase-debug*.log
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+# ⛔ .env chứa URL nội bộ + cấu hình theo môi trường — KHÔNG commit.
+#    Mẫu để trong .env.example (có commit).
+.env
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+example
+
+# generated native folders
+/ios
+/android
+
+# test
+coverage/

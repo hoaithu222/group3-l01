@@ -1,0 +1,22 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`buildPushPayload PUSH-09: message.new trong kênh riêng tư — không lộ nội dung/tên kênh, luôn có targetUserId 1`] = `
+{
+  "androidChannel": "default",
+  "badge": undefined,
+  "body": "Bạn có thông báo mới trong Super App",
+  "collapseKey": "msg:ch1",
+  "data": {
+    "messageId": "m1",
+  },
+  "notificationId": "n1",
+  "scopeId": "ch1",
+  "scopeType": "CHANNEL",
+  "sentAt": Any<String>,
+  "targetUserId": "u1",
+  "title": "Super App",
+  "ttlSeconds": 3600,
+  "type": "message.new",
+  "workspaceId": "ws1",
+}
+`;

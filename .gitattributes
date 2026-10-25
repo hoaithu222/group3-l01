@@ -1,0 +1,29 @@
+# Chuẩn hoá LF cho toàn repo (app/admin/be đều dùng prettier `endOfLine: lf`).
+# Máy Windows có `core.autocrlf=true` sẽ không còn chuyển CRLF khi checkout,
+# tránh cảnh báo "LF will be replaced by CRLF" và diff giả trên mọi file.
+* text=auto eol=lf
+
+# Nhị phân — không chạm
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.jar binary
+*.keystore binary
+*.jks binary
+*.p8 binary
+*.p12 binary
+*.mp3 binary
+*.mp4 binary
+*.pdf binary
+
+# Script Gradle wrapper/shell phải giữ LF kể cả trên Windows
+*.sh text eol=lf
+gradlew text eol=lf
+*.bat text eol=crlf

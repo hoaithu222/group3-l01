@@ -1,0 +1,20 @@
+# blackbox-exporter (p0-11): thăm dò từ NGOÀI vào qua nginx/TLS — bắt được lỗi mà scrape nội bộ không thấy (nginx, chứng chỉ, DNS).
+modules:
+  # HTTPS trả 200 (mặc định theo redirect tối đa 0: AASA KHÔNG được redirect → coi redirect là lỗi).
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      valid_status_codes: [200]
+      fail_if_not_ssl: true
+      no_follow_redirects: true
+      preferred_ip_protocol: ip4
+
+  # TCP + bắt tay TLS (vd turn.<domain>:443, lk.<domain>:443): hạn chứng chỉ qua probe_ssl_earliest_cert_expiry.
+  tcp_tls:
+    prober: tcp
+    timeout: 10s
+    tcp:
+      tls: true
+      preferred_ip_protocol: ip4

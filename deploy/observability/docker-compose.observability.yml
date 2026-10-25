@@ -1,0 +1,145 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Observability (p0-11 be.md §5.5) — compose RIÊNG, chạy CÙNG VM với compose app (nối mạng `superapp_net` có sẵn để scrape theo tên service):
+#   Prometheus + Alertmanager + Grafana + Loki + Promtail + node-exporter + redis-exporter + blackbox-exporter.
+# Dùng (deploy/observability):
+#   cp .env.example .env                                  # điền ENV_NAME, mật khẩu Grafana, khoá cảnh báo…  (⛔ không commit)
+#   cp targets/blackbox-http.example.yml targets/blackbox-http.yml    # + blackbox-tls / livekit / collab — sửa theo môi trường
+#   bash ../scripts/render-config.sh observability        # sinh rendered/alertmanager.yml + secrets/*
+#   docker compose up -d
+# Cổng chỉ bind 127.0.0.1 (không mở ra Internet): truy cập Grafana/Prometheus qua SSH tunnel hoặc reverse-proxy có SSO (README §Truy cập). ⛔ Không chia sẻ link công khai.
+# Tài nguyên: Prometheus lưu 15 ngày, Loki 14 ngày — theo dõi đĩa (cảnh báo HostDiskLow).
+# ─────────────────────────────────────────────────────────────────────────────
+name: superapp-obs
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  prometheus:
+    image: prom/prometheus:${PROMETHEUS_TAG:-v3.5.0}
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+      - --enable-feature=expand-external-labels
+    environment:
+      ENV_NAME: ${ENV_NAME:?đặt ENV_NAME trong .env}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./targets:/etc/prometheus/targets:ro
+      - ./secrets/metrics_token:/etc/prometheus/secrets/metrics_token:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks: [obs, app]
+    restart: unless-stopped
+    logging: *default-logging
+
+  alertmanager:
+    image: prom/alertmanager:${ALERTMANAGER_TAG:-v0.28.1}
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./rendered/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./secrets:/etc/alertmanager/secrets:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "127.0.0.1:9093:9093" # scripts/rolling.sh tạo silence SocketDrop qua cổng này
+    networks: [obs]
+    restart: unless-stopped
+    logging: *default-logging
+
+  grafana:
+    image: grafana/grafana-oss:${GRAFANA_TAG:-11.6.0}
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?đặt GRAFANA_ADMIN_PASSWORD trong .env}
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3001}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      # SSO (nhóm dev — README §6 ma trận quyền): bật GF_AUTH_GENERIC_OAUTH_* / GF_AUTH_GOOGLE_* theo IdP của tổ chức; mặc định chỉ đăng nhập admin nội bộ.
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on: [prometheus, loki]
+    networks: [obs]
+    restart: unless-stopped
+    logging: *default-logging
+
+  loki:
+    image: grafana/loki:${LOKI_TAG:-3.5.0}
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    networks: [obs]
+    restart: unless-stopped
+    logging: *default-logging
+
+  promtail:
+    image: grafana/promtail:${PROMTAIL_TAG:-3.5.0}
+    command: ["-config.file=/etc/promtail/promtail.yml"]
+    volumes:
+      - ./promtail/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - promtail_positions:/positions
+    depends_on: [loki]
+    networks: [obs]
+    restart: unless-stopped
+    logging: *default-logging
+
+  node-exporter:
+    image: prom/node-exporter:${NODE_EXPORTER_TAG:-v1.9.1}
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+)($$|/)
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    networks: [obs]
+    restart: unless-stopped
+    logging: *default-logging
+
+  redis-exporter:
+    image: oliver006/redis_exporter:${REDIS_EXPORTER_TAG:-v1.74.0}
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?đặt REDIS_PASSWORD (cùng giá trị deploy/compose/.env)}
+    networks: [obs, app]
+    restart: unless-stopped
+    logging: *default-logging
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:${BLACKBOX_TAG:-v0.27.0}
+    command: ["--config.file=/etc/blackbox/blackbox.yml"]
+    volumes:
+      - ./blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    networks: [obs]
+    restart: unless-stopped
+    logging: *default-logging
+
+volumes:
+  prometheus_data: {}
+  alertmanager_data: {}
+  grafana_data: {}
+  loki_data: {}
+  promtail_positions: {}
+
+networks:
+  obs: {}
+  # Mạng của compose app (deploy/compose, `name: superapp_net`) — phải tồn tại (docker compose up bên app trước).
+  app:
+    external: true
+    name: superapp_net

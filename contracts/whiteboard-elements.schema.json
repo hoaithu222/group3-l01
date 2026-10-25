@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "whiteboard-elements.schema.json",
+  "title": "Whiteboard Y.Doc — hợp đồng phần tử (p6-02)",
+  "description": "Dạng JSON (Y.Doc.toJSON()) của bảng trắng cộng tác — app dựng/đọc phần tử theo file này; BE (`be/src/modules/whiteboards/services/whiteboard-element.schema.ts`, Zod) là bản phản chiếu và có test đối chiếu hai bên. Y.Doc gốc gồm: `elements` = Y.Map<elementId, Y.Map> (mỗi phần tử là một Y.Map lồng nhau, KHÔNG phải JSON thuần), `order` = Y.Array<elementId> (z-order, phần tử cuối vẽ trên cùng), `meta` = Y.Map. Khi kéo/xoay chỉ ghi x,y (w,h,rotation) lúc THẢ TAY — bản nháp đang kéo đi qua awareness, không vào CRDT. Khoá của `elements` PHẢI bằng `id` của phần tử. Màu lưu ID TOKEN (ink, blue, yellow…), không lưu mã màu, để đổi giao diện sáng/tối không vỡ tương phản. Trần: tối đa 5000 phần tử (BE từ chối state vượt — WB_007), `text` ≤ 2000 ký tự, `points` ≤ 1000 số (= 500 điểm/nét). BE chỉ ĐẾM và cảnh báo phần tử sai schema, không từ chối lưu (để bản app mới thêm loại phần tử không bị server cũ chặn).",
+  "type": "object",
+  "required": ["elements", "order"],
+  "additionalProperties": false,
+  "properties": {
+    "elements": {
+      "type": "object",
+      "maxProperties": 5000,
+      "propertyNames": { "$ref": "#/$defs/elementId" },
+      "additionalProperties": { "$ref": "#/$defs/element" }
+    },
+    "order": {
+      "type": "array",
+      "maxItems": 5000,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/elementId" }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "background": { "enum": ["grid", "dots", "plain"] }
+      }
+    }
+  },
+  "$defs": {
+    "elementId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "description": "Id phần tử do client sinh (nanoid/uuid); cũng là khoá trong `elements`."
+    },
+    "colorToken": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,23}$",
+      "description": "Id token màu (ink, blue, yellow…)."
+    },
+    "objectId": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{24}$",
+      "description": "MongoDB ObjectId 24 ký tự hex (id người dùng / Asset)."
+    },
+    "binding": {
+      "type": "object",
+      "required": ["elementId"],
+      "additionalProperties": false,
+      "properties": {
+        "elementId": { "$ref": "#/$defs/elementId" }
+      }
+    },
+    "element": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "x", "y", "w", "h", "rotation", "strokeColor", "fillColor", "strokeWidth", "createdBy", "updatedBy", "updatedAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/elementId" },
+        "type": {
+          "enum": ["rect", "ellipse", "line", "arrow", "text", "sticky", "freehand", "image", "frame"],
+          "description": "`image` và `frame` là P1 (đã nằm trong hợp đồng để app P0 không phải đổi schema khi bật P1)."
+        },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "w": { "type": "number" },
+        "h": { "type": "number" },
+        "rotation": { "type": "number", "description": "Độ." },
+        "strokeColor": { "$ref": "#/$defs/colorToken" },
+        "fillColor": {
+          "oneOf": [{ "$ref": "#/$defs/colorToken" }, { "type": "null" }],
+          "description": "Token màu nền hoặc null (không tô)."
+        },
+        "strokeWidth": { "type": "number", "minimum": 1, "maximum": 12 },
+        "text": { "type": "string", "maxLength": 2000 },
+        "fontSize": { "type": "number", "minimum": 12, "maximum": 96 },
+        "points": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": { "type": "number" },
+          "description": "Nét tự do: dãy phẳng x0,y0,x1,y1,… nên số phần tử PHẢI chẵn (JSON Schema không biểu diễn được — BE kiểm). Đơn giản hoá Ramer–Douglas–Peucker khi thả tay."
+        },
+        "startBinding": { "$ref": "#/$defs/binding" },
+        "endBinding": { "$ref": "#/$defs/binding" },
+        "assetId": { "$ref": "#/$defs/objectId" },
+        "locked": { "type": "boolean" },
+        "createdBy": { "$ref": "#/$defs/objectId" },
+        "updatedBy": { "$ref": "#/$defs/objectId" },
+        "updatedAt": { "type": "integer", "minimum": 0, "description": "ms từ epoch." }
+      }
+    }
+  }
+}

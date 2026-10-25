@@ -1,0 +1,29 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "vite.config.ts!",
+    "scripts/*.mjs!",
+    "src/main.tsx!",
+    "tests/**/*.test.{ts,tsx}",
+    "src/shared/ui/index.ts!",
+    "src/shared/hooks/index.ts!",
+    "src/shared/widgets/index.ts!",
+    "src/shared/charts/index.ts!",
+    "src/shared/utils/format/index.ts!",
+    "src/shared/utils/style/index.ts!",
+    "src/shared/utils/browser/index.ts!",
+    "src/shared/utils/validation/index.ts!",
+    "src/core/api/index.ts!",
+    "src/core/socket/index.ts!",
+    "src/core/capabilities/index.ts!",
+    "src/features/auth/index.ts!",
+    "src/features/user/index.ts!",
+    "src/shared/widgets/audit-trail/index.ts!",
+    "src/shared/theme/index.ts!"
+  ],
+  "project": ["src/**/*.{ts,tsx}"],
+  "ignore": ["src/vite-env.d.ts", "src/core/api/generated/**"],
+  "vite": false,
+  "vitest": false,
+  "tailwind": false
+}

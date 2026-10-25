@@ -1,0 +1,5 @@
+/* Điểm vào CSS — uỷ quyền toàn bộ cho globals.css.
+   Mọi base style, design token và font nằm ở styles/globals.css.
+   Cần CSS riêng cho feature thì thêm bên dưới dòng import này. */
+
+@import './styles/globals.css';

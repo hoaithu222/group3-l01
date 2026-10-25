@@ -1,0 +1,20 @@
+# Bí mật + file sinh ra lúc deploy — KHÔNG BAO GIỜ commit (deploy/README.md §Bí mật).
+# `.env.example` (chỉ TÊN biến, không giá trị) thì được commit.
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.env
+!*.env.example
+
+# Cấu hình đã render từ template (envsubst) — sinh bởi `deploy/scripts/render-config.sh`
+**/rendered/
+# Thư mục bí mật của compose/observability (metrics token, webhook, mật khẩu SMTP…)
+**/secrets/
+# htpasswd (Swagger staging, Grafana…)
+*.htpasswd
+# Chứng chỉ/khoá thử nghiệm sinh bởi scripts/nginx-test.sh
+**/.tmp/
+
+# Thư mục tạm của scripts
+.tmp-*/

@@ -1,0 +1,50 @@
+{
+  "doc": [
+    "Manifest của phần RANH GIỚI FEATURE trong `scripts/check-imports.mjs`.",
+    "",
+    "`docs/rules/feature-structure.md` cấm import chéo feature. Mỗi cặp `from → to` khai ở đây là MỘT NGOẠI LỆ CÓ CHỦ Ý:",
+    "  · `from` — feature ĐI IMPORT · `to` — feature ĐƯỢC import · `why` — bắt buộc, nói rõ vì sao không đi qua `@/shared`.",
+    "  ⛔ Muốn thêm cặp mới thì trước hết hỏi: thứ cần dùng có đưa lên `@/shared`/`@/core`/`@/shell` được không?",
+    "  Chỉ khai khi `to` thật sự là feature NỀN (không có route riêng, chỉ được các feature có route ghép vào).",
+    "",
+    "⚠️ Trả xong (không còn import nào) thì XOÁ mục — trình soát nhắc bằng cảnh báo, không tự dọn, và không làm đỏ.",
+    "⚠️ File test được miễn; import trong CHÚ THÍCH không tính."
+  ],
+  "allow": [
+    {
+      "from": "channels",
+      "to": "chat",
+      "why": "`chat` là feature NỀN (p1-04, `<ChatRoom scope=…>`) — không có route riêng, chỉ được feature có route ghép vào. Ngoại lệ gốc đã ghi ở `feature-structure.md`. Chiều ngược (`chat` → `channels`) CẤM: đặc thù kênh đi qua props."
+    },
+    {
+      "from": "conversations",
+      "to": "chat",
+      "why": "Cùng ngoại lệ gốc: hội thoại 1-1/nhóm (p1-05) ghép `<ChatRoom>` vào màn của chính nó."
+    },
+    {
+      "from": "threads",
+      "to": "chat",
+      "why": "Cùng ngoại lệ gốc: màn luồng (p1-06) ghép `<ChatRoom>` cho phần trả lời."
+    },
+    {
+      "from": "discovery",
+      "to": "chat",
+      "why": "Tin đã lưu/đã ghim/kết quả tìm là `MessageView` của `chat` — dùng kiểu `MessageView` và các hàm thuần `previewText`/`mentionsToPlainText` để dựng trích đoạn. Chưa được ghi ở `feature-structure.md` (đề nghị bổ sung); chiều ngược `chat` → `discovery` CẤM."
+    },
+    {
+      "from": "meeting-room",
+      "to": "chat",
+      "why": "Khung chat trong phòng họp (`MeetingChatSheet`) ghép `<ChatRoom scope={CONVERSATION}>` — cùng khuôn với `channels`/`conversations`/`threads`. Chưa được ghi ở `feature-structure.md` (đề nghị bổ sung). Thuộc vùng do agent phòng họp quản lý — ghi nhận hiện trạng, không sửa."
+    },
+    {
+      "from": "chat-extensions",
+      "to": "chat",
+      "why": "p7-04: khảo sát là tin `kind = 'POLL'` nằm TRONG cache tin nhắn của `chat` (`chatKeys.messages`) nên bầu lạc quan / `poll:updated` / chèn tin khảo sát vừa tạo phải vá ĐÚNG cache đó bằng các hàm thuần `patchMessageById`/`appendToLatestPage`/`flattenMessages`/`isCaughtUpToLatest` (không tự viết bản thứ hai của cấu trúc trang/`seq`), cùng `chatKeys`, `newClientMessageId`, `graphemeLength`, `mentionsToPlainText` và kiểu `MessageView`/`ChatScopeRef` — tất cả qua mặt tiền `@/features/chat`. `chat` là feature NỀN (ngoại lệ gốc ở `feature-structure.md`); chiều ngược `chat` → `chat-extensions` CẤM: đi qua các khe `@/shared/message-extensions`."
+    },
+    {
+      "from": "study",
+      "to": "roadmap",
+      "why": "p4-07: `StudyHomeScreen` ghép tab thứ 3 \"Lộ trình\" (`RoadmapTab`) và thẻ \"Hôm nay học gì\" (`TodayLessonCard`) vào MÀN CỦA CHÍNH NÓ — đúng khuôn D-29/README p4-07 §3 \"không tăng phân hệ ở menu, cùng tiền lệ live-quiz\". `roadmap` không có tab riêng trên thanh dưới, chỉ được `study` ghép vào; chỉ import qua barrel `@/features/roadmap` (`RoadmapTab`, `TodayLessonCard`, `roadmapKeys`), không đường tương đối. Chiều ngược (`roadmap` → `study`) CẤM: `roadmap` không cần biết gì về `study` (bộ luyện tập `practiceSetIds` chỉ là id trả từ BE, mở bằng route `/study/sets/[setId]`, không cần import kiểu/hàm của `study`)."
+    }
+  ]
+}

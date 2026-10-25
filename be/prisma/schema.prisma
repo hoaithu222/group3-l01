@@ -1,0 +1,5306 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ── users ──
+// UserPrivacy — embedded type (p0-01 D-23). `set` toàn bộ object khi cập nhật
+// (Mongo embedded document, không merge từng field) — service tự merge trước.
+type UserPrivacy {
+  readReceipts Boolean @default(true)
+  showPresence Boolean @default(true)
+  /// p4-03 — Optional (không `@default`) để đọc được tài liệu `privacy` cũ chưa có hai trường này; vắng/`null` ≡ `true`.
+  showInLeaderboard Boolean?
+  showGamification  Boolean?
+  /// Cho người khác TÌM THẤY tài khoản này bằng email/số điện thoại (tra khớp CHÍNH XÁC ở "thêm thành viên" và tìm người) —
+  /// Optional để đọc được tài liệu `privacy` cũ; vắng/`null` ≡ `true` (mặc định cho phép, người dùng tắt được ở Cài đặt).
+  findableByEmail   Boolean?
+  findableByPhone   Boolean?
+}
+
+model User {
+  id                       String        @id @default(auto()) @map("_id") @db.ObjectId
+  email                    String        @unique
+  normalizedName           String        @default("")
+  name                     String
+  role                     String        @default("user")
+  status                   UserStatus    @default(ACTIVE)
+  timezone                 String        @default("Asia/Ho_Chi_Minh")
+  avatarAssetId            String?       @db.ObjectId
+  privacy                  UserPrivacy?
+  sessionVersion           Int           @default(1)
+  deletionRequestedAt      DateTime?
+  deletionGraceUntil       DateTime?
+  anonymizedAt             DateTime?
+  passwordHash             String?
+  passwordChangedAt        DateTime?
+  emailVerified            Boolean       @default(false)
+  emailVerifiedAt          DateTime?
+  verificationToken        String?
+  verificationTokenExpires DateTime?
+  /// Số điện thoại người dùng TỰ KHAI, chuẩn hoá E.164 (`+84912345678`, xem `core/utils/phone.ts`). ⚠ CHƯA xác minh (chưa có OTP/SMS)
+  /// và KHÔNG unique: chỉ dùng để người khác tìm/thêm vào nhóm, KHÔNG dùng đăng nhập hay làm căn cứ tin cậy danh tính.
+  phone                    String?
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+  refreshTokens            RefreshToken[]
+  sessions                 Session[]
+  knownDevices             KnownDevice[]
+
+  @@index([status])
+  @@index([normalizedName])
+  @@index([status, deletionGraceUntil])
+  @@index([phone])
+}
+
+enum UserStatus {
+  ACTIVE
+  LOCKED
+  PENDING_DELETION
+  ANONYMIZED
+}
+
+model RefreshToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Session — lưu HASH của refresh token (không lưu plain). `previousTokenHash`
+// giữ lại 30s sau khi rotate để tha thứ retry mạng trước khi coi là reuse.
+model Session {
+  id                    String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId                String            @db.ObjectId
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash      String            @unique
+  previousTokenHash     String?
+  rotatedAt             DateTime?
+  userAgent             String?
+  ipAddress             String?
+  expiresAt             DateTime
+  createdAt             DateTime          @default(now())
+  lastUsedAt            DateTime          @default(now())
+  revokedAt             DateTime?
+  // ── p0-13: đăng nhập sinh trắc học ──
+  authMethod            SessionAuthMethod @default(PASSWORD)
+  deviceId              String?
+  biometricCredentialId String?           @db.ObjectId
+
+  @@index([userId])
+  @@index([previousTokenHash])
+  @@index([userId, deviceId])
+}
+
+// Thiết bị đã biết của tài khoản — nền cho cảnh báo "đăng nhập thiết bị mới" và nhãn Gốc/Mới ở danh sách phiên.
+// `isOrigin`: thiết bị đăng nhập ĐẦU TIÊN của tài khoản (đúng 1 máy/tài khoản, bảo đảm bởi `originKey` unique).
+model KnownDevice {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId    String
+  /// "<userId>:<deviceId>" — mỗi máy đúng 1 bản ghi/tài khoản.
+  deviceKey   String   @unique
+  /// "<userId>" khi là thiết bị gốc, "n:<deviceKey>" khi không — Mongo coi null là một giá trị trong unique index nên không dùng unique có điều kiện.
+  originKey   String   @unique
+  isOrigin    Boolean  @default(false)
+  userAgent   String?
+  ipAddress   String?
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([userId, lastSeenAt])
+}
+
+// ── auth: đăng nhập sinh trắc học (p0-13) ──
+enum BiometricKind {
+  FACE
+  FINGERPRINT
+  IRIS
+  GENERIC
+}
+
+enum BiometricCredentialStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum SessionAuthMethod {
+  PASSWORD
+  BIOMETRIC
+  /// Đăng nhập bằng mạng xã hội qua Firebase (`POST /auth/firebase-login`). Mongo lưu enum dạng chuỗi ⇒ chỉ cần `prisma generate`, KHÔNG cần `db push`.
+  SOCIAL
+}
+
+model BiometricCredential {
+  id             String                    @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String                    @db.ObjectId
+  deviceId       String
+  platform       DevicePlatform
+  deviceName     String?
+  biometryKind   BiometricKind
+  /// sha256 hex — bí mật gốc KHÔNG BAO GIỜ được lưu
+  secretHash     String
+  /// "<userId>:<deviceId>" khi ACTIVE, "revoked:<id>" khi REVOKED —
+  /// Mongo coi null là một giá trị trong unique index nên không dùng unique có điều kiện.
+  activeKey      String                    @unique
+  status         BiometricCredentialStatus @default(ACTIVE)
+  failedAttempts Int                       @default(0)
+  expiresAt      DateTime
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  /// REPLACED | USER_DISABLED | ACCOUNT_SWITCHED | PASSWORD_CHANGED | PASSWORD_RESET
+  /// | SESSIONS_REVOKED | REUSE_DETECTED | ACCOUNT_LOCKED | DELETION_REQUESTED
+  /// | TOO_MANY_ATTEMPTS | EXPIRED | DEVICE_LIMIT | ADMIN
+  revokeReason   String?
+  revokedBy      String?                   @db.ObjectId
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@index([userId, status])
+  @@index([status, expiresAt])
+  @@index([status, revokedAt])
+}
+
+// ── assets (p0-05) ──
+type Waveform {
+  points Int[] // 64 giá trị 0..100, tính ở client — server chỉ kiểm độ dài
+}
+
+model Asset {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  ownerId       String       @db.ObjectId
+  workspaceId   String?      @db.ObjectId
+  scope         AssetScope
+  kind          AssetKind
+  variant       AssetVariant @default(ORIGINAL)
+  parentAssetId String?      @db.ObjectId
+  status        AssetStatus  @default(UPLOADING)
+  uploadMethod  UploadMethod
+  mime          String
+  /// Kích thước client khai báo lúc tạo — trần trên, KHÔNG tin để hiển thị.
+  declaredSize  Int
+  /// Kích thước thật xác nhận qua `storage.head()` — null cho tới khi `complete`.
+  size          Int?
+  originalName  String
+  storageKey    String       @unique
+  checksum      String?
+  width         Int?
+  height        Int?
+  durationMs    Int?
+  waveform      Waveform?
+  thumbnailAssetId String?   @db.ObjectId
+  rejectReason  String?
+  // Tương thích Phase 0 cũ (trước AssetLink) — xoá sau khi
+  // `scripts/migrate-asset-links.ts` chạy xong ở mọi môi trường.
+  attachedType  String?
+  attachedId    String?      @db.ObjectId
+  createdAt     DateTime     @default(now())
+  processedAt   DateTime?
+  readyAt       DateTime?
+  deletedAt     DateTime?
+  /// Mốc lần `AssetLink` cuối cùng bị gỡ — `assets.cleanup` dùng
+  /// `coalesce(lastUnlinkedAt, createdAt)` để asset vừa mất hết link cũng
+  /// được cho 1 khoảng ân hạn trước khi xoá.
+  lastUnlinkedAt DateTime?
+
+  @@index([ownerId, status])
+  @@index([workspaceId])
+  @@index([status, createdAt])
+  @@index([parentAssetId])
+}
+
+enum AssetScope {
+  MESSAGE
+  RESOURCE
+  AVATAR
+  TASK
+  /// p3-03 — tệp đính kèm bình luận thẻ (AssetLinkTarget.TASK_COMMENT); MIME dùng allowlist chung như TASK.
+  TASK_COMMENT
+  DOC
+  PRINT
+  WORKSPACE
+  MEETING
+  RECORDING
+  /// p4-01 — ảnh/âm thanh của mục học (AssetLinkTarget.STUDY_ITEM) và ảnh bìa bộ học (STUDY_SET_COVER).
+  STUDY
+  /// p4-06 — tệp do SERVER sinh (PDF báo cáo đóng góp, AssetLinkTarget.CONTRIBUTION_EXPORT); client KHÔNG tạo được qua `POST /assets`.
+  REPORT
+  /// p6-05 — ảnh địa điểm O2O (AssetLinkTarget.LOCATION_PHOTO), chỉ người có `o2o:update` tải lên (gate của module `o2o`).
+  LOCATION
+  /// p4-03 — ảnh huy hiệu gamification (AssetLinkTarget.BADGE_ICON); chỉ người có `gamification:update` tải lên (gate của module `gamification`), PNG/WebP ≤ 512 KiB.
+  BADGE
+  /// p6-08 — logo doanh nghiệp (ảnh JPEG/PNG/WebP ≤ 2 MiB) và JD đính kèm lời mời (PDF ≤ 5 MiB); AssetLinkTarget.COMPANY_LOGO / JOB_OFFER.
+  COMPANY
+  /// p6-02 — ảnh thu nhỏ bảng trắng (PNG/WebP ≤ 1 MiB do client chụp canvas; AssetLinkTarget.WHITEBOARD).
+  WHITEBOARD
+  /// p4-07 — ảnh bìa môn học và ảnh/tệp buổi học (AssetLinkTarget.ROADMAP_SUBJECT_COVER / ROADMAP_LESSON); chỉ người có `roadmap:update` tải lên.
+  ROADMAP
+  /// p7-02 — ảnh/tệp vật phẩm cửa hàng hồ sơ (`ShopItem.assetId`: khung avatar/theme/emoji); chỉ admin `gamification:update` tải lên. AssetLinkTarget riêng cho scope này CHƯA khai (để service chợ/shop của Wave 2 quyết định khi nối `AssetLink`).
+  SHOP_ITEM
+}
+
+enum AssetStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  REJECTED
+  DELETED
+}
+
+enum AssetKind {
+  IMAGE
+  VIDEO
+  AUDIO
+  VOICE
+  FILE
+}
+
+enum AssetVariant {
+  ORIGINAL
+  THUMB
+  POSTER
+}
+
+enum UploadMethod {
+  PRESIGNED_PUT
+  API_PUT
+}
+
+enum AssetLinkTarget {
+  MESSAGE
+  USER_AVATAR
+  WORKSPACE_AVATAR
+  /// Ảnh bìa nhóm (`Workspace.coverAssetId`, targetId = workspaceId, link scope WORKSPACE) — ảnh hiển thị như avatar (`shared/media/display-image.ts`).
+  WORKSPACE_COVER
+  CONVERSATION_AVATAR
+  MEETING_RECAP
+  MEETING_RECORDING
+  TASK
+  TASK_COMMENT
+  RESOURCE
+  DOCUMENT
+  EXPENSE_RECEIPT
+  SETTLEMENT_PROOF
+  /// p4-01 — asset của một mục học / ảnh bìa bộ học (quyền đọc = canView bộ học, resolver đăng ký từ module `study`).
+  STUDY_ITEM
+  STUDY_SET_COVER
+  /// p4-06 — PDF báo cáo đóng góp (quyền đọc = `workspace.board.read` của bảng, resolver đăng ký từ module `contribution`).
+  CONTRIBUTION_EXPORT
+  /// p6-05 — tệp in của đơn (quyền đọc do resolver của module `o2o`: chủ đơn; tiệm chỉ khi đã nhận đơn) và ảnh địa điểm (scope USER).
+  PRINT_ORDER
+  LOCATION_PHOTO
+  /// p4-03 — ảnh huy hiệu (`Badge.iconAssetId`); quyền đọc = mọi người đăng nhập khi huy hiệu còn tồn tại (resolver đăng ký từ module `gamification`).
+  BADGE_ICON
+  /// Đồng bộ chéo #3 — Phase 7 (chưa có logic): tệp đính kèm của tin nhắn hẹn giờ (p7-04) và báo cáo quét trùng lặp (p7-05).
+  SCHEDULED_MESSAGE
+  PLAGIARISM_REPORT
+  /// p6-07 — ảnh đại diện riêng của portfolio (targetId = portfolioId) và ảnh bìa dự án (targetId = portfolioProjectId); link scope NONE (chỉ chủ đọc, trang công khai dùng bản đã copy vào build).
+  PORTFOLIO
+  /// p6-08 — logo doanh nghiệp (targetId = companyId; quyền đọc do resolver của module `recruiter`) và JD PDF của lời mời (targetId = jobOfferId: sinh viên của lời mời + thành viên công ty).
+  COMPANY_LOGO
+  JOB_OFFER
+  /// p6-02 — ảnh thu nhỏ bảng trắng (targetId = whiteboardId, `Whiteboard.thumbnailAssetId`); quyền đọc = `whiteboard.read` (resolver đăng ký từ module `whiteboards`).
+  WHITEBOARD
+  /// p4-07 — ảnh bìa môn học (targetId = subjectId) và ảnh/tệp đính kèm buổi học (targetId = lessonId); quyền đọc = môn/buổi đã xuất bản (resolver đăng ký từ module `roadmap`), admin luôn đọc được.
+  ROADMAP_SUBJECT_COVER
+  ROADMAP_LESSON
+  OTHER
+}
+
+enum AssetLinkScope {
+  WORKSPACE
+  CHANNEL
+  CONVERSATION
+  MEETING
+  USER
+  NONE
+}
+
+/// Asset ↔ đối tượng nghiệp vụ (nhiều-nhiều) — quyền đọc asset suy ra từ quyền đọc scope ở đây.
+model AssetLink {
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  assetId    String          @db.ObjectId
+  targetType AssetLinkTarget
+  targetId   String          @db.ObjectId
+  scopeType  AssetLinkScope
+  scopeId    String?         @db.ObjectId
+  createdBy  String          @db.ObjectId
+  createdAt  DateTime        @default(now())
+
+  @@unique([assetId, targetType, targetId])
+  @@index([targetType, targetId])
+  @@index([scopeType, scopeId])
+  @@index([assetId])
+}
+
+// ── audit ──
+model AuditLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  actorId     String   @db.ObjectId
+  actorRole   String
+  action      String
+  targetType  String
+  targetId    String
+  workspaceId String?  @db.ObjectId
+  reason      String?
+  metadata    Json?
+  ip          String?
+  userAgent   String?
+  at          DateTime @default(now())
+
+  @@index([actorId, at])
+  @@index([targetType, targetId])
+  @@index([workspaceId, at])
+  @@index([action, at])
+}
+
+// ── notifications (mở rộng p0-06) ──
+enum NotificationScopeType {
+  NONE
+  WORKSPACE
+  CHANNEL
+  CONVERSATION
+  MEETING
+  CALL
+}
+
+enum NotificationPushStatus {
+  NONE
+  PENDING
+  SENT
+  SKIPPED
+  FAILED
+}
+
+enum PreferenceScope {
+  ACCOUNT
+  WORKSPACE
+  CHANNEL
+  CONVERSATION
+}
+
+enum PreferenceMode {
+  INHERIT
+  ALL
+  MENTIONS
+  MUTED
+}
+
+type QuietHours {
+  tz    String
+  start String // "22:00"
+  end   String // "07:00"
+}
+
+model Notification {
+  id          String                  @id @default(auto()) @map("_id") @db.ObjectId
+  type        String // "mention", "call.missed", "meeting.reminder"…
+  scopeType   NotificationScopeType   @default(NONE)
+  scopeId     String?                 @db.ObjectId
+  workspaceId String?                 @db.ObjectId
+  actorId     String?                 @db.ObjectId
+  sourceType  String
+  sourceId    String
+  refs        Json? // { messageId?, threadId?, callId?, meetingId? } — không nội dung
+  dedupeKey   String                  @unique
+  createdAt   DateTime                @default(now())
+  recipients  NotificationRecipient[]
+
+  @@index([createdAt])
+  @@index([scopeType, scopeId])
+}
+
+model NotificationRecipient {
+  id              String                 @id @default(auto()) @map("_id") @db.ObjectId
+  notificationId  String                 @db.ObjectId
+  notification    Notification           @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  recipientId     String                 @db.ObjectId
+  kind            String // ưu tiên sau hợp nhất: MENTION > FIRST_REPLY > THREAD_REPLY > …
+  inInbox         Boolean                @default(true)
+  dedupeKey       String // = sourceId gốc (messageId…) ?? notificationId
+  scopeType       NotificationScopeType  @default(NONE)
+  scopeId         String?                @db.ObjectId
+  workspaceId     String?                @db.ObjectId
+  readAt          DateTime?
+  seenAt          DateTime?
+  pushStatus      NotificationPushStatus @default(NONE)
+  skipReason      String?
+  deliveredPushAt DateTime?
+  createdAt       DateTime               @default(now())
+  // ── p1-07 (read-state-notifications) — TẤT CẢ optional: doc cũ (p0-06) thiếu
+  // field vẫn đọc được; nơi ghi (fan-out/notify) LUÔN set tường minh (kể cả null)
+  // để filter `{field: value}` khớp (Prisma+Mongo không khớp field "absent").
+  kindRank        Int? // thang `KIND_PRIORITY` của notify(): MENTION 100 · FIRST_REPLY 80 · THREAD_REPLY 60 · khác 0
+  streamKey       String? // "root" | threadId — luồng chứa tin (mark-read-by-stream)
+  streamSeq       Int? // seq của tin trong luồng (root: seq kênh/hội thoại; thread: seq reply)
+  filterBucket    String? // NotificationFilter: mentions | following | calls | meetings | all
+  cancelledAt     DateTime? // mất quyền / gỡ mention — đi kèm inInbox=false
+
+  @@unique([recipientId, dedupeKey])
+  @@index([recipientId, inInbox, readAt, createdAt])
+  @@index([recipientId, workspaceId, createdAt])
+  @@index([recipientId, scopeType, scopeId])
+  @@index([recipientId, inInbox, filterBucket, createdAt])
+}
+
+// `scopeKey` KHÔNG null — "account" cho ACCOUNT, tránh sentinel rỗng như bản
+// trước (be.md §2 ghi chú migrate `scopeId` cũ → `scopeKey`, `mode "NONE"` cũ
+// → `MUTED`; chưa có script vì Phase 0 chưa có dữ liệu preference thật).
+model NotificationPreference {
+  id                String          @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String          @db.ObjectId
+  scope             PreferenceScope
+  scopeKey          String // "account" | workspaceId | channelId | conversationId
+  mode              PreferenceMode  @default(INHERIT)
+  mutedUntil        DateTime?
+  dndUntil          DateTime? // chỉ ACCOUNT
+  quietHours        QuietHours? // chỉ ACCOUNT (P1 UI)
+  lockScreenPreview Boolean         @default(false) // chỉ ACCOUNT — LEGACY (p0-06); p1-07 dùng `lockScreenLevel`
+  // ── p1-07: cài đặt theo loại. null = kế thừa (WORKSPACE) / lấy mặc định SystemConfig (ACCOUNT).
+  directMode        NotifyModeAccount? // ACCOUNT
+  groupMode         NotifyModeAccount? // ACCOUNT / WORKSPACE
+  channelMode       NotifyModeAccount? // ACCOUNT / WORKSPACE
+  lockScreenLevel   LockScreenPreview? // ACCOUNT — thay `lockScreenPreview` boolean
+  sound             Boolean? // ACCOUNT
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([userId, scope, scopeKey])
+}
+
+// ── p1-07 enums ──
+enum NotifyModeAccount {
+  ALL
+  MENTIONS_AND_THREADS
+  MUTED
+}
+
+enum LockScreenPreview {
+  HIDDEN
+  SENDER
+  FULL
+}
+
+// ── read-state (p1-07) — mốc đọc KÊNH/THREAD (hội thoại dùng ConversationMember.lastReadSeq) ──
+enum ReadStreamType {
+  CHANNEL
+  THREAD
+}
+
+model ReadState {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String         @db.ObjectId
+  streamType  ReadStreamType
+  streamId    String         @db.ObjectId
+  workspaceId String         @db.ObjectId
+  channelId   String         @db.ObjectId // = streamId khi CHANNEL; kênh chứa thread khi THREAD
+  lastReadSeq Int            @default(0)
+  lastReadAt  DateTime?
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([userId, streamType, streamId])
+  @@index([userId, workspaceId, streamType])
+}
+
+// ── permission (khung, hoàn thiện ở p1-02/p1-03 — p0-02 chuẩn hoá sang enum) ──
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+enum MembershipStatus {
+  ACTIVE
+  PENDING
+  LEFT
+  REMOVED
+  BANNED
+}
+
+enum GrantLevel {
+  MEMBER
+  MANAGER
+}
+
+enum GrantSource {
+  DIRECT
+  ROLE
+}
+
+// Thiết lập cá nhân theo workspace/kênh (D-23) — dùng chung WorkspaceMembership + ChannelMembership.
+enum NotifyMode {
+  INHERIT
+  ALL_MESSAGES
+  MENTIONS_AND_THREADS
+  MUTED
+}
+
+model WorkspaceMembership {
+  id            String           @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId   String           @db.ObjectId
+  userId        String           @db.ObjectId
+  role          WorkspaceRole
+  status        MembershipStatus @default(ACTIVE)
+  displayName   String?
+  joinedAt      DateTime         @default(now())
+  leftAt        DateTime?
+  expiresAt     DateTime? // GUEST (p3-04)
+  invitedBy     String?          @db.ObjectId
+  inviteLinkId  String?          @db.ObjectId
+  banReason     String?
+  removedBy     String?          @db.ObjectId
+  // thiết lập cá nhân (D-23)
+  isFavorite    Boolean          @default(false)
+  position      Float?
+  notifyMode    NotifyMode       @default(INHERIT)
+  lastVisitedAt DateTime?
+  // ── access-extensions (p3-04) — trường mới, mọi trường optional hoặc có default ──
+  /// Tăng mỗi lần đổi/gia hạn `expiresAt` của GUEST → nằm trong jobId `guest.expire`.
+  expiryVersion  Int              @default(0)
+  /// LEFT | REMOVED | BANNED | EXPIRED | REJECTED
+  leftReason     String?
+  requestMessage String?
+  requestedAt    DateTime?
+  decidedBy      String?          @db.ObjectId
+  decidedAt      DateTime?
+  invitationId   String?          @db.ObjectId
+  /// p6-03 — nhãn hiển thị (chữ, KHÔNG phải quyền), vd `"MENTOR"` cho khách là cố vấn; xoá khi kết thúc đợt cố vấn.
+  displayTag     String?
+
+  @@unique([workspaceId, userId])
+  @@index([userId, status])
+  @@index([workspaceId, role, status])
+  @@index([workspaceId, status, joinedAt])
+  @@index([workspaceId, status, role])
+  /// Quét khách hết hạn (`guests.expire-sweep`, p3-04).
+  @@index([role, status, expiresAt])
+}
+
+model ChannelGrant {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  channelId   String      @db.ObjectId
+  workspaceId String      @db.ObjectId // [p1-03] để consumer membership.revoked xoá theo workspace
+  /// [p3-04] `null` khi `source = ROLE` (grant theo vai trò không thuộc riêng người nào).
+  userId      String?     @db.ObjectId
+  level       GrantLevel
+  source      GrantSource @default(DIRECT)
+  roleRef     String? // ADMIN|MEMBER khi ROLE (p3-04)
+  /// [p3-04] `userId` (DIRECT) | "role:ADMIN" | "role:MEMBER" (ROLE) — khoá unique thay cho `userId` vì Mongo
+  /// coi null trùng null. Doc Phase 1 cũ được điền bằng `npm run db:backfill-grant-subject-key` (CHẠY TRƯỚC
+  /// `db push`; xem docs/plans/phase-3-projects-resources/p3-04-rbac-guest-role-grant/be.md §2, D-28 mục 5).
+  subjectKey  String
+  grantedBy   String      @db.ObjectId
+  createdAt   DateTime    @default(now())
+
+  @@unique([channelId, subjectKey, source])
+  @@index([userId, workspaceId])
+  @@index([channelId, level])
+  /// [p3-04] tìm role grant của workspace khi thành viên vào nhóm / đổi vai trò (`source = ROLE`).
+  @@index([workspaceId, source])
+}
+
+// ── workspaces (p1-01) ──
+enum WorkspaceStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum WorkspaceArchiveReason {
+  MANUAL
+  PLATFORM
+}
+
+model Workspace {
+  id               String                  @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  normalizedName   String
+  description      String?
+  /// Ảnh đại diện nhóm — PHẢI khớp `AssetLink(WORKSPACE_AVATAR)` (ghi cùng transaction ở `WorkspaceService`); nhóm tạo trước bản vá chỉ có link → `scripts/backfill-workspace-images.ts`.
+  avatarAssetId    String?                 @db.ObjectId
+  /// Ảnh bìa nhóm — khớp `AssetLink(WORKSPACE_COVER)`. Có ảnh thì ảnh thắng `coverPreset`.
+  coverAssetId     String?                 @db.ObjectId
+  /// Mẫu nền bìa dựng sẵn (`WORKSPACE_COVER_PRESETS`: violet|amber|ocean|forest|sunset|rose|slate) — null = client tự chọn theo id nhóm.
+  coverPreset      String?
+  ownerId          String                  @db.ObjectId
+  defaultChannelId String?                 @db.ObjectId
+  status           WorkspaceStatus         @default(ACTIVE)
+  archivedAt       DateTime?
+  archivedBy       String?                 @db.ObjectId
+  archivedReason   WorkspaceArchiveReason?
+  archiveNote      String?
+  memberCount      Int                     @default(1)
+  lastActivityAt   DateTime                @default(now())
+  version          Int                     @default(1)
+  // ── resources (p3-01) — dung lượng kho tài liệu (byte), `$inc` trong transaction tạo/xoá vĩnh viễn Resource.
+  // KHÔNG dùng BigInt (be.md §2 đã chừa lối "dùng Int nếu BigInt gây vướng", nhưng Int32 tràn ở 2 GiB = quota mặc định):
+  // BigInt làm `JSON.stringify` của MỌI hàng Workspace ném "Do not know how to serialize a BigInt" — thực tế
+  // `admin-workspace.controller` trả nguyên hàng Prisma (platformArchive/Restore) → 500. Float (double) chính xác tới
+  // 2^53 ≈ 9 PB, JSON-safe, `{ increment: n }` hoạt động. Doc cũ thiếu trường → Prisma đọc ra 0 (đã kiểm), $inc tự tạo trường.
+  storageUsedBytes Float                   @default(0)
+  // ── access-extensions (p3-04) ──
+  joinPolicy       JoinPolicy              @default(OPEN)
+  /// { enabled: boolean, maxGuests: int, maxDays: int, memberCanInvite: boolean } — null = theo mặc định nền tảng.
+  guestPolicy      Json?
+  /// Múi giờ IANA của nhóm (đồng bộ chéo #9) — dùng để tính "ngày" (dời lịch, Gantt, báo cáo đóng góp, thống kê ngày). null = theo mặc định hệ thống (`pm.timezone` → `CRON_TZ`).
+  timezone         String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@index([ownerId])
+  @@index([status, lastActivityAt])
+  @@index([normalizedName])
+}
+
+// ── members (p1-02) ──
+model InviteLink {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId   String        @db.ObjectId
+  tokenHash     String        @unique
+  tokenPrefix   String // 6 ký tự đầu để nhận diện trên UI quản lý
+  role          WorkspaceRole @default(MEMBER) // P0 chỉ MEMBER; GUEST ở p3-04
+  maxUses       Int
+  remainingUses Int
+  usesCount     Int           @default(0)
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  revokedBy     String?       @db.ObjectId
+  createdBy     String        @db.ObjectId
+  createdAt     DateTime      @default(now())
+  lastUsedAt    DateTime?
+
+  @@index([workspaceId, revokedAt, expiresAt])
+  @@index([createdBy])
+}
+
+// Số liệu ngày cho admin overview/stats (README p1-01 §7 job `workspace.stats-daily`).
+model WorkspaceDailyStat {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId   String   @db.ObjectId
+  date          String // "YYYY-MM-DD"
+  messages      Int      @default(0)
+  activeMembers Int      @default(0)
+  files         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([workspaceId, date])
+}
+
+// ── channels (p1-03 — Channel/ChannelMembership đưa vào sớm ở p1-01 chỉ để
+// bootstrap kênh "Chung" trong transaction tạo workspace, schema giữ nguyên
+// không đổi lúc p1-03 hiện thực đầy đủ CRUD/grant/archive; `ChannelGrant` ở
+// trên (khung Phase 0) được sửa lúc này: đổi `ChannelGrantLevel` → `GrantLevel`,
+// thêm `workspaceId`) ──
+enum ChannelType {
+  TEXT
+  VOICE
+  POMODORO
+}
+
+enum ChannelVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum PostingPolicy {
+  MEMBERS
+  ADMINS_ONLY
+}
+
+enum ChannelStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ChannelArchiveReason {
+  MANUAL
+  NO_MANAGER
+  PLATFORM
+}
+
+/// p2-03 — cấu hình phòng thoại kênh VOICE; service kẹp `maxParticipants` ≤ `LIMITS.voice.maxParticipants`.
+type ChannelVoiceSettings {
+  allowVideo      Boolean @default(true)
+  maxParticipants Int     @default(8)
+}
+
+model Channel {
+  id             String                @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String                @db.ObjectId
+  name           String
+  normalizedName String
+  description    String?
+  type           ChannelType           @default(TEXT)
+  visibility     ChannelVisibility     @default(PUBLIC)
+  postingPolicy  PostingPolicy         @default(MEMBERS)
+  status         ChannelStatus         @default(ACTIVE)
+  archiveReason  ChannelArchiveReason?
+  archivedAt     DateTime?
+  archivedBy     String?               @db.ObjectId
+  isDefault      Boolean               @default(false)
+  position       Float                 @default(0)
+  settings       Json? // VOICE/POMODORO cấu hình (p2-03/p5-02)
+  /// p2-03 — cấu hình phòng thoại (chỉ có khi type = VOICE); thiếu ⇒ mặc định `{ allowVideo: true, maxParticipants: 8 }`.
+  voiceSettings  ChannelVoiceSettings?
+  lastSeq        Int                   @default(0)
+  lastMessageAt  DateTime?
+  lastMessageId  String?               @db.ObjectId
+  memberCount    Int                   @default(0) // public: ChannelMembership; private: grant
+  createdBy      String                @db.ObjectId
+  version        Int                   @default(1)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@unique([workspaceId, normalizedName])
+  @@index([workspaceId, status, visibility, position])
+  @@index([workspaceId, lastMessageAt])
+}
+
+model ChannelMembership {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  channelId   String     @db.ObjectId
+  workspaceId String     @db.ObjectId
+  userId      String     @db.ObjectId
+  notifyMode  NotifyMode @default(INHERIT)
+  pinned      Boolean    @default(false)
+  position    Float?
+  joinedAt    DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([channelId, userId])
+  @@index([userId, workspaceId])
+}
+
+// ── messaging (p1-04) ──
+enum MessageScopeType {
+  CHANNEL
+  CONVERSATION
+}
+
+enum MessageKind {
+  USER
+  SYSTEM
+  /// p7-04 — tin khảo sát: tin của NGƯỜI DÙNG (có reaction/reply như tin thường), phần khảo sát nằm ở model `Poll` 1-1 theo `messageId`.
+  POLL
+}
+
+enum SystemMessageType {
+  CONVERSATION_CREATED
+  MEMBER_JOINED
+  MEMBER_LEFT
+  MEMBER_ADDED
+  MEMBER_REMOVED
+  ROLE_CHANGED
+  OWNER_TRANSFERRED
+  TITLE_CHANGED
+  AVATAR_CHANGED
+  MESSAGE_PINNED
+  CALL_SUMMARY
+  MEETING_REMINDER
+  MEETING_STARTED
+  MEETING_RECAP
+  MEETING_RECORDING_READY
+  INTEGRATION
+  /// p1-05 be.md §5.5/§11 — tin hệ thống khi hội thoại nhóm bị giải tán (OWNER hoặc nền tảng).
+  CONVERSATION_DISSOLVED
+  /// p6-04 — nhắc nợ định kỳ vào nhóm chat/kênh (không nêu số tiền).
+  WALLET_REMINDER
+  /// p6-03 — cố vấn (GUEST có hạn) tham gia / rời nhóm chat cố vấn; payload `{ mentorId, endsAt? }` / `{ mentorId, reason }` (không nêu nội dung đơn ứng tuyển).
+  MENTOR_JOINED
+  MENTOR_LEFT
+}
+
+enum AttachmentKind {
+  IMAGE
+  VIDEO
+  AUDIO
+  VOICE
+  FILE
+}
+
+type MessageMention {
+  type     String // USER | ROLE | ALL
+  targetId String? @db.ObjectId // USER: id người dùng · ROLE/ALL: null
+  label    String?
+  /// [p3-04] `@role`: "ADMIN" | "MEMBER" khi `type = ROLE` (không phải ObjectId nên KHÔNG đi vào `targetId`);
+  /// repository của `messages` map `roleRef` ⇄ `targetId` ở biên domain. Optional → doc cũ vẫn đọc được.
+  roleRef  String?
+}
+
+type MessageAttachment {
+  assetId          String         @db.ObjectId
+  kind             AttachmentKind
+  name             String
+  mime             String
+  size             Int
+  width            Int?
+  height           Int?
+  durationMs       Int?
+  waveform         Int[] // VOICE, ≤ 64 mẫu 0–255
+  thumbnailAssetId String?        @db.ObjectId
+}
+
+type MessageLink {
+  url  String
+  host String
+}
+
+// [P1] — giữ định nghĩa cho tương thích field `linkPreview` trên Message dù
+// job `link.preview` (be.md §5.9) chưa build ở vòng p1-04 này.
+type LinkPreview {
+  url          String
+  title        String?
+  description  String?
+  siteName     String?
+  imageAssetId String?  @db.ObjectId
+  fetchedAt    DateTime
+}
+
+type ReplyPreview {
+  authorId String?  @db.ObjectId
+  excerpt  String
+  kind     String
+  deleted  Boolean  @default(false)
+}
+
+type ForwardedFrom {
+  messageId String           @db.ObjectId
+  scopeType MessageScopeType
+  authorId  String?          @db.ObjectId
+  createdAt DateTime
+}
+
+type ReactionSummary {
+  emoji String
+  count Int
+}
+
+/// p7-04 — tin đã được chuyển thành task/tài liệu (`Message.sourceRefs`, ≤ 20, khử trùng theo (kind, refId)). Chỉ là THAM CHIẾU: nội dung task/tài liệu nằm ở module sở hữu.
+type MessageSourceRef {
+  /// TASK | RESOURCE
+  kind      String
+  refId     String   @db.ObjectId
+  createdBy String   @db.ObjectId
+  createdAt DateTime
+}
+
+model Message {
+  id                String              @id @default(auto()) @map("_id") @db.ObjectId
+  scopeType         MessageScopeType
+  scopeId           String              @db.ObjectId
+  workspaceId       String?             @db.ObjectId
+  threadId          String?             @db.ObjectId
+  threadKey         String              @default("root") // threadId ?? "root" — tránh null trong unique
+  seq               Int
+  authorId          String?             @db.ObjectId
+  kind              MessageKind         @default(USER)
+  systemType        SystemMessageType?
+  systemPayload     Json?
+  clientMessageId   String?
+  dedupeKey         String              // "u:<authorId>:<clientMessageId>" | "s:<dedupeKey>"
+  content           String?
+  normalizedContent String?
+  mentions          MessageMention[]
+  attachments       MessageAttachment[]
+  links             MessageLink[]
+  linkPreview       LinkPreview?
+  replyToId         String?             @db.ObjectId
+  replyPreview      ReplyPreview?
+  forwardedFrom     ForwardedFrom?
+  reactionsSummary  ReactionSummary[]
+  /// p7-04 — thẻ/tài liệu đã tạo từ tin này (`IMessageSendPort.appendSourceRef`). Tài liệu cũ chưa có trường → đọc ra mảng rỗng.
+  sourceRefs        MessageSourceRef[]
+  pinnedAt          DateTime?
+  pinnedBy          String?             @db.ObjectId
+  editedAt          DateTime?
+  version           Int                 @default(1)
+  deletedAt         DateTime?
+  deletedBy         String?             @db.ObjectId
+  deleteReason      String?
+  deleteMode        String?             // AUTHOR_RECALL | MODERATION
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([scopeType, scopeId, threadKey, seq])
+  @@unique([dedupeKey])
+  @@index([scopeType, scopeId, threadKey, createdAt])
+  @@index([scopeType, scopeId, pinnedAt])
+  @@index([replyToId])
+  @@index([authorId, createdAt])
+  // p1-09 (discovery) — tìm trong kênh/hội thoại xuyên cả reply thread: cửa sổ thời gian
+  // `createdAt` theo phạm vi (ScopeSearchService quét cửa sổ mới → cũ) và bộ lọc người gửi.
+  @@index([scopeType, scopeId, createdAt])
+  @@index([scopeType, scopeId, authorId, createdAt])
+  // p1-01 `workspace.stats-daily` — đếm tin/tệp của 1 workspace trong 1 ngày (`workspaceId` + khoảng `createdAt`).
+  @@index([workspaceId, createdAt])
+}
+
+model MessageReaction {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  messageId String           @db.ObjectId
+  scopeType MessageScopeType
+  scopeId   String           @db.ObjectId
+  userId    String           @db.ObjectId
+  emoji     String
+  createdAt DateTime         @default(now())
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId, emoji, createdAt])
+}
+
+model MessageHide {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String           @db.ObjectId
+  messageId String           @db.ObjectId
+  scopeType MessageScopeType
+  scopeId   String           @db.ObjectId
+  seq       Int
+  createdAt DateTime         @default(now())
+
+  @@unique([userId, messageId])
+  @@index([userId, scopeType, scopeId, seq])
+}
+
+// `LinkPreviewCache` — [P1], KHÔNG tạo model ở vòng p1-04 này (job `link.preview`
+// bị bỏ qua, xem be.md §5.9/§2 ghi chú P1).
+
+// ── devices / push (FCM + APNs VoIP — p0-06) ──
+// Gắn theo TÀI KHOẢN, không theo workspace (một máy nhận thông báo xuyên mọi
+// workspace) — xem docs/modules/communication-hub/implementation.md §2.
+// iOS có 2 bản ghi cùng `deviceId` (FCM cho hiển thị + APNS_VOIP cho cuộc gọi).
+model DeviceToken {
+  id           String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String           @db.ObjectId
+  deviceId     String
+  platform     DevicePlatform
+  kind         DeviceTokenKind
+  token        String           @unique
+  bundleId     String?
+  environment  ApnsEnvironment?
+  appVersion   String?
+  locale       String?
+  failureCount Int              @default(0)
+  lastSeenAt   DateTime         @default(now())
+  revokedAt    DateTime?
+  revokeReason String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([userId, revokedAt])
+  @@index([userId, deviceId])
+  @@index([revokedAt, updatedAt])
+}
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+enum DeviceTokenKind {
+  FCM
+  APNS_VOIP
+}
+
+enum ApnsEnvironment {
+  SANDBOX
+  PRODUCTION
+}
+
+// ── system ──
+// ── system config / feature flags (p0-07) ──
+model SystemConfig {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique // "limits.message", "features", ...
+  value     Json // chỉ phần override (partial), không phải bản hợp nhất
+  version   Int      @default(1)
+  updatedBy String?  @db.ObjectId
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// `SystemConfigRevision` (lịch sử phiên bản để khôi phục) — P1, CỐ TÌNH CHƯA
+// tạo model ở vòng p0-07 này (be.md đánh dấu P1, YAGNI — thêm khi thật sự cần
+// khôi phục bản trước thay vì trước). `reason`/`updatedBy`/`updatedAt` trên
+// `SystemConfig` đã đủ audit trail hiện tại + `AuditLog` (before/after).
+
+model Counter {
+  id  String @id @default(auto()) @map("_id") @db.ObjectId
+  key String @unique
+  seq Int    @default(0)
+}
+
+// ── outbox (p0-04) ──
+enum OutboxStatus {
+  PENDING
+  DISPATCHING
+  DISPATCHED
+  FAILED
+}
+
+model OutboxEvent {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  type          String // "call.ring-timeout.schedule", "user.session-invalidated"…
+  aggregateType String // "Call", "User", "Message"…
+  aggregateId   String
+  queue         String // QueueName
+  jobName       String
+  payload       Json
+  dedupeKey     String       @unique // cũng là BullMQ jobId
+  delayMs       Int? // delayed job
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  lastError     String?
+  availableAt   DateTime     @default(now())
+  lockedUntil   DateTime?
+  lockedBy      String?
+  createdAt     DateTime     @default(now())
+  dispatchedAt  DateTime?
+
+  @@index([status, availableAt])
+  @@index([status, lockedUntil])
+  @@index([aggregateType, aggregateId])
+  @@index([dispatchedAt])
+}
+
+// ── moderation (p1-08 — model đưa vào SỚM ở p1-05 vì eligibility DIRECT cần
+// kiểm chặn hai chiều NGAY, be.md p1-05 §5.1; schema khớp NGUYÊN VẸN với
+// p1-08 be.md §2 để module đó không cần sửa lại khi build — cùng tiền lệ
+// Channel/ChannelMembership đưa vào sớm ở p1-01 cho p1-03) ──
+model UserBlock {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  blockerId String   @db.ObjectId
+  blockedId String   @db.ObjectId
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+// ── moderation reports (p1-08) ──
+// Enum ĐỂ MỞ RỘNG: thêm PORTFOLIO/COMPANY/JOB_OFFER/STUDY_SET/MENTOR_POST ở các
+// phase sau chỉ là thêm giá trị enum (Mongo lưu chuỗi — không phá bản ghi cũ).
+enum ReportTargetType {
+  MESSAGE
+  USER
+  CHANNEL
+  CONVERSATION
+  /// p4-01 — bộ học PUBLIC/WORKSPACE.
+  STUDY_SET
+  /// p6-03 — bài tìm cố vấn (bảng tin Mentor Connect), chỉ quản trị nền tảng xử lý.
+  MENTOR_POST
+  /// p6-07 — trang portfolio công khai (module `portfolio` đăng ký `registerReportTargetExtension`), chỉ quản trị nền tảng xử lý (`moderation:update` → takedown).
+  PORTFOLIO
+  /// p6-08 — doanh nghiệp (Recruiter board) và lời mời việc làm lạm dụng; module `recruiter` đăng ký `registerReportTargetExtension`, chỉ quản trị nền tảng xử lý.
+  COMPANY
+  JOB_OFFER
+}
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  INAPPROPRIATE
+  SCAM
+  IMPERSONATION
+  OTHER
+  /// p4-01 — vi phạm bản quyền (bộ học).
+  COPYRIGHT
+  /// p4-01 — nội dung sai (bộ học).
+  WRONG_CONTENT
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+enum ReportResolution {
+  CONTENT_REMOVED
+  AUTHOR_WARNED
+  USER_LOCKED
+  CHANNEL_ARCHIVED
+  CONVERSATION_DISSOLVED
+  NO_ACTION
+}
+
+enum ReportHandlerLevel {
+  SCOPE
+  PLATFORM_ONLY
+}
+
+model Report {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  reporterId      String              @db.ObjectId
+  targetType      ReportTargetType
+  targetId        String              @db.ObjectId
+  groupKey        String // "<targetType>:<targetId>" — gộp nhiều báo cáo cùng đích
+  scopeType       MessageScopeType? // MESSAGE: phạm vi của tin; CHANNEL→CHANNEL; CONVERSATION→CONVERSATION; USER: null
+  scopeId         String?             @db.ObjectId
+  scopeIsPrivate  Boolean             @default(false) // kênh private / nhóm chat / 1-1 → D-06
+  workspaceId     String?             @db.ObjectId
+  targetAuthorId  String?             @db.ObjectId
+  handlerLevel    ReportHandlerLevel
+  reason          ReportReason
+  description     String?
+  status          ReportStatus        @default(OPEN)
+  resolution      ReportResolution?
+  resolutionNote  String?
+  resolvedBy      String?             @db.ObjectId
+  resolvedAtLevel ReportHandlerLevel?
+  resolvedAt      DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([status, createdAt])
+  @@index([groupKey, status])
+  @@index([workspaceId, status, createdAt])
+  @@index([scopeType, scopeId, status])
+  @@index([targetAuthorId, createdAt])
+}
+
+// ── conversations (p1-05) ──
+enum ConversationKind {
+  DIRECT
+  GROUP
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+  DISSOLVED
+}
+
+enum ConversationRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum ConversationMemberStatus {
+  ACTIVE
+  LEFT
+  REMOVED
+}
+
+enum ConversationNotifyMode {
+  INHERIT
+  ALL
+  MENTIONS
+  MUTED
+}
+
+type ConversationSettings {
+  membersCanAdd  Boolean @default(false)
+  memberCanPin   Boolean @default(false)
+  mentionAllRole String  @default("ADMIN") // ADMIN | MEMBER (p1-06)
+}
+
+model Conversation {
+  id              String             @id @default(auto()) @map("_id") @db.ObjectId
+  kind            ConversationKind
+  workspaceId     String?            @db.ObjectId
+  meetingId       String?            @db.ObjectId
+  meetingKey      String? // = meetingId khi có; unique không null-trùng → "m:<id>" hoặc "none:<convId>"
+  directKey       String // DIRECT: "<idNhỏ>:<idLớn>" · GROUP: "g:<convId>" (luôn unique, không null)
+  title           String?
+  normalizedTitle String?
+  avatarAssetId   String?            @db.ObjectId
+  ownerId         String?            @db.ObjectId
+  createdBy       String             @db.ObjectId
+  status          ConversationStatus @default(ACTIVE)
+  settings        ConversationSettings
+  lastSeq         Int                @default(0)
+  lastMessageAt   DateTime?
+  lastMessageId   String?            @db.ObjectId
+  activityAt      DateTime           @default(now()) // = lastMessageAt ?? createdAt, dùng sắp xếp
+  memberCount     Int                @default(0)
+  version         Int                @default(1)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  archivedAt      DateTime?
+  dissolvedAt     DateTime?
+  dissolvedBy     String?            @db.ObjectId
+  dissolveReason  String?
+  // ── access-extensions (p3-04) — GROUP: cho phép OWNER/ADMIN nhóm thêm khách (mặc định tắt, D-16).
+  allowGuests     Boolean            @default(false)
+
+  @@unique([directKey])
+  @@unique([meetingKey])
+  @@index([workspaceId, kind, status])
+  @@index([meetingId])
+}
+
+model ConversationMember {
+  id                String                   @id @default(auto()) @map("_id") @db.ObjectId
+  conversationId    String                   @db.ObjectId
+  userId            String                   @db.ObjectId
+  kind              ConversationKind // phi chuẩn hoá để lọc danh sách
+  workspaceId       String?                  @db.ObjectId
+  role              ConversationRole         @default(MEMBER)
+  status            ConversationMemberStatus @default(ACTIVE)
+  peerUserId        String?                  @db.ObjectId // DIRECT: người còn lại
+  joinedAt          DateTime                 @default(now())
+  leftAt            DateTime?
+  addedBy           String?                  @db.ObjectId
+  lastReadSeq       Int                      @default(0)
+  lastReadAt        DateTime?
+  unreadCount       Int                      @default(0) // tin của người khác sau lastReadSeq (reset ở p1-07)
+  mentionsSinceRead Int                      @default(0)
+  notifyMode        ConversationNotifyMode   @default(INHERIT)
+  mutedUntil        DateTime?
+  pinnedAt          DateTime?
+  archivedAt        DateTime?
+  markedUnread      Boolean                  @default(false)
+  hiddenBeforeSeq   Int                      @default(0)
+  activityAt        DateTime                 @default(now()) // copy từ Conversation.activityAt khi có tin (sắp danh sách theo member)
+  searchText        String                   @default("") // normalize(title | peer name) — cập nhật khi đổi tên
+  version           Int                      @default(1)
+
+  @@unique([conversationId, userId])
+  @@index([userId, status, archivedAt, activityAt])
+  @@index([userId, status, pinnedAt])
+  @@index([userId, kind, status, activityAt])
+  @@index([conversationId, status, role])
+}
+
+// ── threads (p1-06) — reply threads ở kênh + theo dõi thread ──
+enum ThreadSubscriptionState {
+  AUTO_ON
+  EXPLICIT_ON
+  EXPLICIT_OFF
+}
+
+model Thread {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId     String    @db.ObjectId
+  channelId       String    @db.ObjectId
+  parentMessageId String    @unique @db.ObjectId
+  parentAuthorId  String?   @db.ObjectId
+  replyCount      Int       @default(0)
+  lastReplySeq    Int       @default(0)
+  lastReplyAt     DateTime?
+  lastReplierIds  String[]  @db.ObjectId // ≤ 3, mới nhất trước
+  subscriberCount Int       @default(0)
+  version         Int       @default(1)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([channelId, lastReplyAt])
+}
+
+model ThreadSubscription {
+  id        String                  @id @default(auto()) @map("_id") @db.ObjectId
+  threadId  String                  @db.ObjectId
+  channelId String                  @db.ObjectId
+  userId    String                  @db.ObjectId
+  state     ThreadSubscriptionState
+  updatedAt DateTime                @updatedAt
+  createdAt DateTime                @default(now())
+
+  @@unique([threadId, userId])
+  @@index([userId, state, updatedAt])
+  @@index([threadId, state])
+}
+
+// ── discovery (p1-09) — tin đã lưu của từng người ──
+// KHÔNG sao nội dung tin: chỉ giữ tham chiếu + `scopeType/scopeId/workspaceId` để lọc danh sách.
+// Quyền đọc được kiểm lại TỪNG mục khi trả (SavedService.list) — mất quyền/tin bị gỡ → `available:false`.
+// `threadId` = id TIN GỐC của thread (cùng nghĩa `Message.threadId`), null với tin ngoài thread.
+model SavedMessage {
+  id          String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String           @db.ObjectId
+  messageId   String           @db.ObjectId
+  scopeType   MessageScopeType
+  scopeId     String           @db.ObjectId
+  workspaceId String?          @db.ObjectId
+  threadId    String?          @db.ObjectId
+  createdAt   DateTime         @default(now())
+
+  @@unique([userId, messageId])
+  @@index([userId, createdAt])
+  @@index([userId, workspaceId, createdAt])
+  @@index([userId, scopeType, createdAt])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// PHASE 3 — Dự án & Tài liệu (foundation schema PR — docs/plans/phase-3-projects-resources)
+// Ba nhóm comment dưới đây do foundation Phase 3 tạo; agent module CHỈ sửa nhóm của mình
+// (p3-01 → resources · p3-02/p3-03 → projects · p3-04 → access-extensions). Trường mới trên
+// model có sẵn nằm TẠI CHỖ (Workspace, WorkspaceMembership, ChannelGrant, Conversation, AssetScope).
+// ⚠ Mongo/Prisma: create() phải ghi tường minh null cho mọi trường sau này lọc {field: null}
+//   (deletedAt, completedAt, archivedAt…) — Prisma không khớp trường "absent"
+//   (memory be_prisma_mongo_null_vs_absent).
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── resources ── (p3-01 Resource Hub)
+enum ResourceType {
+  PDF
+  IMAGE
+  VIDEO
+  AUDIO
+  CODE
+  DOC
+  SHEET
+  SLIDE
+  TEXT
+  OTHER
+}
+
+enum PreviewStatus {
+  NONE
+  NATIVE
+  PENDING
+  READY
+  FAILED
+  UNSUPPORTED
+}
+
+/// Thư mục lồng của kho tài liệu theo workspace (≤ `LIMITS.resource.folderDepthMax` cấp).
+model Folder {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String    @db.ObjectId
+  parentId       String?   @db.ObjectId
+  /// parentId ?? "root" — tránh null trong unique index (quy ước Mongo).
+  parentKey      String
+  /// Tổ tiên từ gốc, KHÔNG gồm chính nó.
+  path           String[]  @db.ObjectId
+  /// Gốc = 1.
+  depth          Int
+  name           String
+  normalizedName String
+  /// = normalizedName khi active; normalizedName + "#" + id khi đã xoá mềm (nhường tên cho thư mục mới).
+  nameKey        String
+  createdBy      String    @db.ObjectId
+  deletedAt      DateTime?
+  deletedBy      String?   @db.ObjectId
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([workspaceId, parentKey, nameKey])
+  @@index([workspaceId, parentKey, deletedAt])
+  @@index([workspaceId, path])
+}
+
+/// Metadata tệp trong kho (nội dung ở `Asset` qua `AssetLink { targetType: RESOURCE }`).
+model Resource {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String        @db.ObjectId
+  folderId       String?       @db.ObjectId
+  /// folderId ?? "root".
+  folderKey      String
+  assetId        String        @unique @db.ObjectId
+  name           String
+  normalizedName String
+  extension      String?
+  type           ResourceType
+  /// CODE: ngôn ngữ tô màu.
+  language       String?
+  mime           String
+  size           Int
+  description    String?
+  tags           String[]
+  /// Bản PDF chuyển đổi từ Office (P1).
+  previewAssetId String?       @db.ObjectId
+  previewStatus  PreviewStatus @default(NONE)
+  uploadedBy     String        @db.ObjectId
+  version        Int           @default(1)
+  deletedAt      DateTime?
+  deletedBy      String?       @db.ObjectId
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([workspaceId, folderKey, deletedAt, createdAt])
+  @@index([workspaceId, deletedAt, normalizedName])
+  @@index([workspaceId, type, deletedAt])
+  @@index([deletedAt])
+}
+
+// ── projects ── (p3-02 Kanban board + p3-03 Chi tiết task & checklist)
+enum ColumnKind {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+/// p4-05 dùng — Phase 3 luôn NONE.
+enum ReviewState {
+  NONE
+  PENDING
+  APPROVED
+  CHANGES_REQUESTED
+}
+
+type BoardColumn {
+  /// "c_" + nanoid(8), ổn định khi đổi tên.
+  id       String
+  title    String
+  kind     ColumnKind
+  order    Int
+  wipLimit Int?
+}
+
+model Board {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String        @db.ObjectId
+  name           String
+  normalizedName String
+  description    String?
+  columns        BoardColumn[]
+  /// p4-05: { enabled, requiredReviews, preventSelfReview, rubric[] }
+  review         Json?
+  /// p4-06 (D-09): { weights:{points,onTime,peer}, onTimeGraceHours }
+  contribution   Json?
+  createdBy      String        @db.ObjectId
+  archivedAt     DateTime?
+  version        Int           @default(1)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([workspaceId, archivedAt])
+}
+
+/// p7-04 — thẻ được tạo từ một tin nhắn (`Task.sourceMessageRef`): CHỈ trỏ về tin (không sao chép nội dung riêng tư); người không đọc được tin mở link → 404 của `messages`.
+type TaskSourceMessageRef {
+  scopeType   MessageScopeType
+  scopeId     String           @db.ObjectId
+  messageId   String           @db.ObjectId
+  workspaceId String?          @db.ObjectId
+}
+
+/// Mục checklist nhúng trong Task (p3-03) — sửa từng mục qua `$runCommandRaw` + arrayFilters.
+type ChecklistItem {
+  id     String
+  text   String
+  done   Boolean   @default(false)
+  doneBy String?   @db.ObjectId
+  doneAt DateTime?
+  /// Số thực — chèn giữa hai mục = trung bình.
+  order  Float
+}
+
+model Task {
+  id                  String          @id @default(auto()) @map("_id") @db.ObjectId
+  boardId             String          @db.ObjectId
+  workspaceId         String          @db.ObjectId
+  /// "c_xxxxxxxx" — id cột nhúng trong Board.columns.
+  columnId            String
+  /// Phi chuẩn hoá để lọc/đếm theo trạng thái; cập nhật khi move/đổi kind cột.
+  columnKind          ColumnKind
+  /// Fractional index (`fractional-indexing`).
+  position            String
+  title               String
+  normalizedTitle     String
+  /// p3-03 — markdown.
+  description         String?
+  assigneeIds         String[]        @db.ObjectId
+  labelIds            String[]        @db.ObjectId
+  startDate           DateTime?
+  dueDate             DateTime?
+  storyPoints         Int?
+  checklist           ChecklistItem[]
+  checklistDone       Int             @default(0)
+  checklistTotal      Int             @default(0)
+  attachmentCount     Int             @default(0)
+  commentCount        Int             @default(0)
+  reviewState         ReviewState     @default(NONE)
+  completedAt         DateTime?
+  completionCount     Int             @default(0)
+  createdBy           String          @db.ObjectId
+  /// Idempotency tạo thẻ (bổ sung `Idempotency-Key`).
+  clientTaskId        String?
+  /// p3-03 — tăng mỗi lần dueDate đổi → jobId nhắc hạn.
+  dueVersion          Int             @default(0)
+  /// p3-03 — khôi phục về cột cũ.
+  deletedFromColumnId String?
+  deletedAt           DateTime?
+  deletedBy           String?         @db.ObjectId
+  /// p7-04 — tin nhắn nguồn khi thẻ được tạo từ chat (`ITaskCreationPort.createFromMessage`); vắng = thẻ tạo tay.
+  sourceMessageRef    TaskSourceMessageRef?
+  /// p4-04 — số thẻ TRƯỚC chưa DONE (FINISH_TO_START) — cập nhật khi thêm/xoá phụ thuộc.
+  blockedByCount      Int             @default(0)
+  /// p4-04 — số thẻ SAU chưa DONE.
+  blockingCount       Int             @default(0)
+  version             Int             @default(1)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([boardId, deletedAt, columnId, position])
+  @@index([workspaceId, assigneeIds, dueDate])
+  @@index([workspaceId, columnKind, completedAt])
+  @@index([boardId, normalizedTitle])
+}
+
+model Label {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  boardId        String   @db.ObjectId
+  workspaceId    String   @db.ObjectId
+  name           String
+  normalizedName String
+  /// Khoá token màu (`LABEL_COLOR_TOKENS`) — không hex tự do.
+  color          String
+  createdAt      DateTime @default(now())
+
+  @@unique([boardId, normalizedName])
+}
+
+model TaskActivity {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  taskId      String   @db.ObjectId
+  boardId     String   @db.ObjectId
+  workspaceId String   @db.ObjectId
+  /// null = hệ thống (dời lịch tự động, job).
+  actorId     String?  @db.ObjectId
+  /// `TASK_ACTIVITY_TYPES` (core/constants/project.ts) — String để p4 mở rộng không cần đổi schema.
+  type        String
+  before      Json?
+  after       Json?
+  /// Gộp CHECKLIST_DONE/UNDONE liên tiếp cùng người ≤ 60 s ("cl:<userId>", p3-03).
+  groupKey    String?
+  at          DateTime @default(now())
+
+  @@index([taskId, at])
+  /// p4-06 ActivityDaily.
+  @@index([workspaceId, actorId, at])
+}
+
+// ── projects ── (p4-04 Đường găng & dời lịch)
+enum DependencyType {
+  FINISH_TO_START
+}
+
+enum RescheduleBatchStatus {
+  QUEUED
+  RUNNING
+  DONE
+  PARTIAL
+  FAILED
+}
+
+/// Cạnh phụ thuộc giữa hai thẻ CÙNG bảng (DAG — kiểm vòng khi thêm, p4-04 be.md §5.1).
+model TaskDependency {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId   String         @db.ObjectId
+  boardId       String         @db.ObjectId
+  predecessorId String         @db.ObjectId
+  successorId   String         @db.ObjectId
+  type          DependencyType @default(FINISH_TO_START)
+  createdBy     String         @db.ObjectId
+  createdAt     DateTime       @default(now())
+
+  @@unique([predecessorId, successorId])
+  @@index([successorId])
+  @@index([boardId])
+}
+
+type ReschedulePlanItem {
+  taskId          String    @db.ObjectId
+  expectedVersion Int
+  oldStartDate    DateTime?
+  oldDueDate      DateTime
+  newStartDate    DateTime?
+  newDueDate      DateTime
+  assigneeIds     String[]  @db.ObjectId
+  /// APPLIED | CONFLICT — ghi khi lô áp.
+  result          String?
+}
+
+/// Lô dời lịch nền (> LIMITS.task.rescheduleSyncMax thẻ, p4-04 be.md §5.6).
+model RescheduleBatch {
+  id            String                @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId   String                @db.ObjectId
+  boardId       String                @db.ObjectId
+  sourceTaskId  String                @db.ObjectId
+  requestedBy   String                @db.ObjectId
+  sourceDueDate DateTime
+  /// "board:<boardId>" khi QUEUED|RUNNING; "batch:<id>" khi kết thúc — một lô đang chạy mỗi bảng ở tầng DB.
+  activeKey     String                @unique
+  status        RescheduleBatchStatus @default(QUEUED)
+  /// ≤ LIMITS.task.rescheduleBulkMax, sắp tô-pô.
+  items         ReschedulePlanItem[]
+  affectedCount Int
+  /// Chỉ số item kế tiếp — chạy lại tiếp từ đây.
+  cursor        Int                   @default(0)
+  appliedCount  Int                   @default(0)
+  conflictCount Int                   @default(0)
+  error         String?
+  createdAt     DateTime              @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  @@index([boardId, createdAt])
+  @@index([requestedBy, createdAt])
+}
+
+model TaskComment {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  taskId          String    @db.ObjectId
+  boardId         String    @db.ObjectId
+  workspaceId     String    @db.ObjectId
+  authorId        String    @db.ObjectId
+  clientCommentId String
+  content         String
+  /// [{ type: "USER", targetId }]
+  mentions        Json
+  attachmentCount Int       @default(0)
+  editedAt        DateTime?
+  deletedAt       DateTime?
+  deletedBy       String?   @db.ObjectId
+  deleteReason    String?
+  version         Int       @default(1)
+  createdAt       DateTime  @default(now())
+
+  @@unique([authorId, clientCommentId])
+  @@index([taskId, createdAt])
+  /// p4-06 hoạt động.
+  @@index([workspaceId, authorId, createdAt])
+}
+
+/// P1 — theo dõi thẻ. state: AUTO_ON | EXPLICIT_ON | EXPLICIT_OFF.
+model TaskWatcher {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  taskId    String   @db.ObjectId
+  userId    String   @db.ObjectId
+  state     String
+  updatedAt DateTime @updatedAt
+
+  @@unique([taskId, userId])
+  @@index([userId])
+}
+
+// ── projects ── (p4-05 Peer review — chấm chéo xoay vòng)
+// `Board.review` (Json) và `Task.reviewState` đã có từ p3-02; p4-05 KHÔNG thêm trường vào Task/Board — lượt hiện tại của thẻ
+// = lượt có `round` lớn nhất (unique `[taskId, round]`), lượt đang mở tra bằng `activeKey`.
+enum ReviewRoundStatus {
+  OPEN
+  APPROVED
+  CHANGES_REQUESTED
+  CANCELLED
+  WAIVED
+}
+
+enum TaskReviewStatus {
+  PENDING
+  APPROVED
+  REQUEST_CHANGES
+  CANCELLED
+  REASSIGNED
+}
+
+/// Tiêu chí chấm — cấu hình sống ở `Board.review.rubric` (JSON), lượt chấm CHỤP lại vào `rubricSnapshot`.
+type RubricCriterion {
+  /// "r_" + 6 ký tự [A-Za-z0-9], ổn định khi sửa tên.
+  id          String
+  label       String
+  description String?
+  maxScore    Int
+}
+
+type RubricScore {
+  criterionId String
+  /// 0..maxScore, bước 0,5.
+  score       Float
+}
+
+/// Một lần chấm của thẻ (mỗi lần thẻ vào cột REVIEW) — chứa `TaskReview` của từng người chấm.
+model TaskReviewRound {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  taskId            String            @db.ObjectId
+  boardId           String            @db.ObjectId
+  workspaceId       String            @db.ObjectId
+  /// 1, 2, 3… theo thẻ.
+  round             Int
+  status            ReviewRoundStatus @default(OPEN)
+  /// "task:<taskId>" khi OPEN; "round:<id>" khi đã đóng — một lượt mở mỗi thẻ ở tầng DB (Mongo coi null là một giá trị unique).
+  activeKey         String            @unique
+  /// min(cấu hình, số ứng viên) tại lúc mở (có thể giảm khi người chấm rời nhóm).
+  requiredReviews   Int
+  configuredReviews Int
+  assignedCount     Int               @default(0)
+  approvedCount     Int               @default(0)
+  rubricSnapshot    RubricCriterion[]
+  /// requiredReviews < configuredReviews (nhóm không đủ người chấm).
+  shortage          Boolean           @default(false)
+  /// Tự duyệt vì không có ứng viên chấm nào (requiredReviews = 0).
+  autoApproved      Boolean           @default(false)
+  /// null = hệ thống (hiệu ứng move / backfill).
+  openedBy          String?           @db.ObjectId
+  openedAt          DateTime          @default(now())
+  closedAt          DateTime?
+  /// APPROVED | CHANGES_REQUESTED | LEFT_REVIEW | REVIEW_DISABLED | TASK_DELETED | WAIVED
+  closeReason       String?
+  waivedBy          String?           @db.ObjectId
+  waiveReason       String?
+  version           Int               @default(1)
+
+  @@unique([taskId, round])
+  @@index([workspaceId, status, openedAt])
+  @@index([boardId, status])
+}
+
+/// Lượt chấm của MỘT người trong một lượt — nộp một lần, không sửa sau khi nộp.
+model TaskReview {
+  id           String           @id @default(auto()) @map("_id") @db.ObjectId
+  roundId      String           @db.ObjectId
+  taskId       String           @db.ObjectId
+  boardId      String           @db.ObjectId
+  workspaceId  String           @db.ObjectId
+  reviewerId   String           @db.ObjectId
+  status       TaskReviewStatus @default(PENDING)
+  /// null = hệ thống (cân tải tự động).
+  assignedBy   String?          @db.ObjectId
+  assignedAt   DateTime         @default(now())
+  submittedAt  DateTime?
+  /// Thang 10, làm tròn 1 chữ số.
+  score10      Float?
+  rubricScores RubricScore[]
+  feedback     String?
+  /// ROUND_CLOSED | BECAME_ASSIGNEE | MEMBER_LEFT | REVIEW_DISABLED | MANUAL
+  cancelReason String?
+  /// Review thay thế (khi REASSIGNED).
+  replacedById String?          @db.ObjectId
+  version      Int              @default(1)
+
+  @@unique([roundId, reviewerId])
+  /// Cân tải: đếm PENDING theo người trong workspace.
+  @@index([workspaceId, reviewerId, status])
+  /// `GET /me/reviews`.
+  @@index([reviewerId, status, assignedAt])
+  @@index([taskId, status])
+}
+
+// ── access-extensions ── (p3-04 GUEST, role grant, @role, mời đích danh, duyệt tham gia)
+// Trường mới của Workspace/WorkspaceMembership/ChannelGrant/Conversation nằm TẠI model đó (xem ở trên).
+enum JoinPolicy {
+  OPEN
+  APPROVAL
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+/// Lời mời đích danh theo email (MEMBER hoặc GUEST). Token 32 byte — chỉ lưu SHA-256.
+model WorkspaceInvitation {
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId     String           @db.ObjectId
+  /// Hiển thị cho người mời.
+  email           String
+  /// lowercase + trim (không bỏ dấu chấm gmail).
+  normalizedEmail String
+  /// MEMBER | GUEST
+  role            String
+  guestChannelIds String[]         @db.ObjectId
+  guestDays       Int?
+  message         String?
+  tokenHash       String           @unique
+  invitedBy       String           @db.ObjectId
+  status          InvitationStatus @default(PENDING)
+  /// PENDING → "<workspaceId>:<normalizedEmail>"; rời PENDING → "done:<id>". KHÔNG bao giờ null
+  /// (be.md ghi String? nhưng tự mâu thuẫn): unique không dùng null-trùng (quy ước Mongo) — luôn ghi khi create.
+  pendingKey      String           @unique
+  expiresAt       DateTime
+  lastSentAt      DateTime
+  sendCount       Int              @default(1)
+  acceptedBy      String?          @db.ObjectId
+  acceptedAt      DateTime?
+  revokedBy       String?          @db.ObjectId
+  revokedAt       DateTime?
+  createdAt       DateTime         @default(now())
+
+  @@index([workspaceId, status, createdAt])
+  @@index([normalizedEmail, status])
+}
+
+// ── wallet (p6-04) — ví nhóm & chia tiền ──
+// Tiền là SỐ NGUYÊN đồng (VND). Admin KHÔNG có API xem model nào ở đây (README §2 "Admin").
+// Ghi tường minh `null` cho field lọc bằng `{field: null}` (deletedAt, staleNotifiedAt...) — Prisma+Mongo không khớp field absent.
+enum WalletReminderTarget {
+  NONE
+  CONVERSATION
+  CHANNEL
+}
+
+model WorkspaceWallet {
+  id                 String               @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId        String               @unique @db.ObjectId
+  currency           String               @default("VND")
+  enabled            Boolean              @default(true)
+  reminderEnabled    Boolean              @default(true)
+  reminderCron       String               @default("0 9 * * 5")
+  timezone           String               @default("Asia/Ho_Chi_Minh")
+  reminderTargetType WalletReminderTarget @default(NONE)
+  /// conversationId (GROUP) hoặc channelId (TEXT) theo `reminderTargetType`.
+  reminderTargetId   String?              @db.ObjectId
+  reminderMinDebt    Int                  @default(10000)
+  lastRemindedAt     DateTime?
+  lastManualRemindAt DateTime?
+  /// Tăng mỗi thay đổi số dư/cài đặt — client so với cache để refetch.
+  walletVersion      Int                  @default(0)
+  version            Int                  @default(1)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+}
+
+enum ExpenseKind {
+  EXPENSE
+  ADJUSTMENT
+}
+
+enum SplitType {
+  EQUAL
+  CUSTOM
+  PERCENT
+}
+
+/// Snapshot đầu vào chia tiền: `amount` (CUSTOM) hoặc `bps` (PERCENT), EQUAL không có.
+type ExpenseParticipant {
+  userId String @db.ObjectId
+  amount Int?
+  bps    Int?
+}
+
+model WorkspaceExpense {
+  id                    String               @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId           String               @db.ObjectId
+  kind                  ExpenseKind          @default(EXPENSE)
+  adjustsExpenseId      String?              @db.ObjectId
+  /// ADJUSTMENT: chênh lệch tổng (có thể âm) so với tổng hiệu lực của khoản gốc.
+  amount                Int
+  description           String
+  normalizedDescription String
+  category              String               @default("OTHER")
+  paidBy                String               @db.ObjectId
+  splitType             SplitType
+  participants          ExpenseParticipant[]
+  receiptAssetId        String?              @db.ObjectId
+  occurredAt            DateTime
+  createdBy             String               @db.ObjectId
+  version               Int                  @default(1)
+  deletedAt             DateTime?
+  deletedBy             String?              @db.ObjectId
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  @@index([workspaceId, occurredAt])
+  @@index([workspaceId, paidBy])
+  @@index([adjustsExpenseId])
+}
+
+enum ShareStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  VOID
+}
+
+model ExpenseShare {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  expenseId   String      @db.ObjectId
+  workspaceId String      @db.ObjectId
+  debtorId    String      @db.ObjectId
+  creditorId  String      @db.ObjectId
+  /// Có thể âm với ADJUSTMENT (giảm nợ).
+  amount      Int
+  /// Phép chiếu FIFO — KHÔNG phải nguồn sự thật (số dư ròng mới là nguồn).
+  paidAmount  Int         @default(0)
+  status      ShareStatus @default(UNPAID)
+  occurredAt  DateTime
+
+  @@unique([expenseId, debtorId])
+  @@index([workspaceId, debtorId, status, occurredAt])
+  @@index([workspaceId, creditorId, status])
+}
+
+enum SettlementMethod {
+  CASH
+  BANK
+  OTHER
+}
+
+enum SettlementStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+/// Phân bổ hiển thị lúc xác nhận: settlement này làm share nào "đã trả" thêm bao nhiêu.
+type SettlementAllocation {
+  shareId String @db.ObjectId
+  amount  Int
+}
+
+model Settlement {
+  id              String                 @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId     String                 @db.ObjectId
+  /// 8 ký tự, dùng trong nội dung chuyển khoản `SA <code>`.
+  code            String                 @unique
+  fromId          String                 @db.ObjectId
+  toId            String                 @db.ObjectId
+  amount          Int
+  method          SettlementMethod
+  proofAssetId    String?                @db.ObjectId
+  note            String?
+  status          SettlementStatus       @default(PENDING)
+  allocations     SettlementAllocation[]
+  createdBy       String                 @db.ObjectId
+  confirmedAt     DateTime?
+  rejectedAt      DateTime?
+  rejectReason    String?
+  cancelledAt     DateTime?
+  staleNotifiedAt DateTime?
+  version         Int                    @default(1)
+  createdAt       DateTime               @default(now())
+
+  @@index([workspaceId, status, createdAt])
+  @@index([workspaceId, toId, status])
+  @@index([workspaceId, fromId, status])
+}
+
+/// Số dư ròng phi chuẩn hoá theo (workspace, user), cập nhật `$inc` trong transaction + job rebuild.
+model WalletBalance {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId String   @db.ObjectId
+  userId      String   @db.ObjectId
+  /// >0 được nợ, <0 đang nợ.
+  balance     Int      @default(0)
+  /// Tổng phần phải trả ròng (gồm điều chỉnh âm) — đối chiếu khi rebuild.
+  owedTotal   Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([workspaceId, userId])
+}
+
+/// Tài khoản nhận tiền — số TK mã hoá AES-GCM (`accountNumberEnc`), KHÔNG bao giờ log/trả trong danh sách.
+model UserPaymentProfile {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String   @db.ObjectId
+  /// 6 số NAPAS.
+  bankBin          String
+  /// base64(iv|tag|cipher).
+  accountNumberEnc String
+  accountLast4     String
+  /// IN HOA không dấu theo NAPAS.
+  accountName      String
+  isDefault        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// ── study ── (p4-01 Study set & Flashcard; p4-02 mock/SR và p5-01 live quiz dùng lại StudySet/StudyItem/StudyOption,
+// KHÔNG đổi model — xem be.md p4-01 §2)
+enum StudyVisibility {
+  PRIVATE
+  WORKSPACE
+  PUBLIC
+}
+
+enum StudySetStatus {
+  ACTIVE
+  HIDDEN
+  DELETED
+}
+
+enum StudyItemType {
+  FLASHCARD
+  MULTIPLE_CHOICE
+  MULTI_SELECT
+  TRUE_FALSE
+  FILL_BLANK
+}
+
+enum FillMatchMode {
+  EXACT
+  IGNORE_CASE
+  IGNORE_ACCENTS
+}
+
+/// Lựa chọn của câu trắc nghiệm — `id` ổn định ("o_" + 6 ký tự; TRUE_FALSE cố định o_true/o_false), không dùng index.
+type StudyOption {
+  id           String
+  text         String
+  mediaAssetId String? @db.ObjectId
+}
+
+model StudySet {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  ownerId         String          @db.ObjectId
+  workspaceId     String?         @db.ObjectId
+  title           String
+  normalizedTitle String
+  description     String?
+  /// Đã chuẩn hoá: chữ thường, bỏ dấu (normalizeSearch).
+  tags            String[]
+  coverAssetId    String?         @db.ObjectId
+  /// "vi" | "en" | …
+  language        String?
+  visibility      StudyVisibility @default(PRIVATE)
+  status          StudySetStatus  @default(ACTIVE)
+  hiddenReason    String?
+  hiddenBy        String?         @db.ObjectId
+  hiddenAt        DateTime?
+  itemCount       Int             @default(0)
+  /// Bit theo StudyItemType (FLASHCARD=1, MULTIPLE_CHOICE=2, MULTI_SELECT=4, TRUE_FALSE=8, FILL_BLANK=16) — lọc "có câu chấm được"
+  /// cho mock test (`itemTypesMask > 1`) mà không phải quét mục.
+  itemTypesMask   Int             @default(0)
+  reportedCount   Int             @default(0)
+  copiedFromId    String?         @db.ObjectId
+  copyCount       Int             @default(0)
+  version         Int             @default(1)
+  deletedAt       DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([ownerId, status, updatedAt])
+  @@index([workspaceId, visibility, status, updatedAt])
+  @@index([visibility, status, updatedAt])
+  @@index([visibility, status, tags])
+  @@index([visibility, status, normalizedTitle])
+}
+
+model StudyItem {
+  id                String        @id @default(auto()) @map("_id") @db.ObjectId
+  setId             String        @db.ObjectId
+  ownerId           String        @db.ObjectId
+  type              StudyItemType
+  /// Mặt trước / câu hỏi.
+  prompt            String
+  /// FLASHCARD: mặt sau.
+  answerText        String?
+  options           StudyOption[]
+  /// MULTIPLE_CHOICE: 1; MULTI_SELECT: ≥ 1; TRUE_FALSE: options cố định o_true/o_false.
+  correctOptionIds  String[]
+  /// FILL_BLANK.
+  acceptedAnswers   String[]
+  matchMode         FillMatchMode @default(IGNORE_CASE)
+  explanation       String?
+  frontMediaAssetId String?       @db.ObjectId
+  backMediaAssetId  String?       @db.ObjectId
+  audioAssetId      String?       @db.ObjectId
+  /// Dùng cho radar theo chủ đề của p4-02.
+  tags              String[]
+  order             Float
+  version           Int           @default(1)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([setId, order])
+}
+
+// ── roadmap (p4-07) — lộ trình học: môn → tháng/giai đoạn → buổi ("ngày học" trên lịch cá nhân) ──
+enum RoadmapSubjectStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum RoadmapUnlockMode {
+  FREE
+  SEQUENTIAL
+}
+
+enum RoadmapProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+}
+
+enum RoadmapEnrollmentStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum RoadmapResourceKind {
+  LINK
+  VIDEO
+  TOOL
+  FILE
+  NOTE
+}
+
+enum RoadmapMediaKind {
+  SVG
+  ASSET
+}
+
+/// Tài liệu của buổi — nhúng trong RoadmapLesson. `id` "r_" + nanoid(8), ổn định khi sửa.
+type RoadmapResource {
+  id      String
+  kind    RoadmapResourceKind
+  /// Nhóm hiển thị: "Tài liệu chính thức" | "Video" | "Công cụ" | "Nâng cao" | tự do.
+  group   String?
+  title   String
+  url     String?
+  assetId String? @db.ObjectId
+  note    String?
+  /// NOTE (cheatsheet, addendum) — markdown; app nhận `blocks` dựng sẵn qua presenter.
+  bodyMd  String?
+  order   Float
+}
+
+/// Mục tự kiểm tra — id "k_" + băm 8 ký tự của (group + text) ⇒ import lại không làm mất tick của người học.
+type RoadmapChecklistItem {
+  id    String
+  text  String
+  group String?
+}
+
+model RoadmapSubject {
+  id                  String               @id @default(auto()) @map("_id") @db.ObjectId
+  slug                String               @unique
+  title               String
+  normalizedTitle     String
+  description         String?
+  /// "programming" | "language" | … — tự do, admin chọn từ danh sách gợi ý.
+  category            String
+  color               String?
+  icon                String?
+  coverAssetId        String?              @db.ObjectId
+  /// "Buổi" | "Ngày" | "Bài"
+  lessonLabel         String               @default("Buổi")
+  /// Thứ học mặc định khi người học đăng ký (1 = Thứ 2 … 7 = Chủ nhật).
+  defaultStudyDays    Int[]
+  unlockMode          RoadmapUnlockMode    @default(FREE)
+  status              RoadmapSubjectStatus @default(DRAFT)
+  order               Float
+  phaseCount          Int                  @default(0)
+  lessonCount         Int                  @default(0)
+  /// Số buổi đã xuất bản và không `optional` — mẫu số của %.
+  requiredLessonCount Int                  @default(0)
+  /// Vết nguồn import, vd "import:fullstack".
+  sourceRef           String?
+  version             Int                  @default(1)
+  createdBy           String               @db.ObjectId
+  updatedBy           String?              @db.ObjectId
+  publishedAt         DateTime?
+  archivedAt          DateTime?
+  deletedAt           DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([status, deletedAt, order])
+}
+
+model RoadmapPhase {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  subjectId   String    @db.ObjectId
+  /// 1…n — "Tháng 1".
+  index       Int
+  title       String
+  summary     String?
+  /// Nhãn giai đoạn lớn, vd "Giai đoạn 1 — Nền móng giao diện".
+  stageLabel  String?
+  color       String?
+  /// Dự án cuối tháng (markdown ngắn).
+  capstone    String?
+  order       Float
+  lessonCount Int       @default(0)
+  version     Int       @default(1)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([subjectId, deletedAt, order])
+}
+
+model RoadmapLesson {
+  id              String                 @id @default(auto()) @map("_id") @db.ObjectId
+  subjectId       String                 @db.ObjectId
+  phaseId         String                 @db.ObjectId
+  /// "fullstack-b49" — khoá idempotent của import.
+  slug            String                 @unique
+  /// Số thứ tự toàn môn (1…n), tính lại khi sắp xếp.
+  number          Int
+  title           String
+  normalizedTitle String
+  summary         String?
+  durationMinutes Int?
+  prerequisites   String?
+  objectives      String[]
+  bodyMd          String
+  /// Block[] (be.md §5.1) dựng từ bodyMd khi lưu/import — app chỉ đọc trường này.
+  blocks          Json
+  /// Phiên bản định dạng khối — đổi định dạng thì dựng lại hàng loạt.
+  blocksFormat    Int                    @default(1)
+  checklist       RoadmapChecklistItem[]
+  resources       RoadmapResource[]
+  practiceSetIds  String[]               @db.ObjectId
+  mediaCount      Int                    @default(0)
+  optional        Boolean                @default(false)
+  published       Boolean                @default(false)
+  order           Float
+  version         Int                    @default(1)
+  /// null = chưa admin nào sửa (import được phép ghi đè).
+  updatedBy       String?                @db.ObjectId
+  deletedAt       DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([subjectId, deletedAt, published, order])
+  @@index([phaseId, deletedAt, order])
+}
+
+model RoadmapMedia {
+  id         String           @id @default(auto()) @map("_id") @db.ObjectId
+  lessonId   String           @db.ObjectId
+  subjectId  String           @db.ObjectId
+  kind       RoadmapMediaKind
+  /// "Tại lớp" | "Bài về nhà" | "Minh hoạ"
+  group      String?
+  caption    String?
+  /// SVG đã vệ sinh (kind SVG), ≤ LIMITS.roadmap.svgMaxBytes.
+  svg        String?
+  assetId    String?          @db.ObjectId
+  width      Int?
+  height     Int?
+  /// Đường dẫn tương đối trong nguồn import, vd "b1/code/profile-mockup.svg" — map link/ảnh trong bài → khối image.
+  sourcePath String?
+  order      Float
+  deletedAt  DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@index([lessonId, deletedAt, order])
+}
+
+model RoadmapEnrollment {
+  id             String                  @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String                  @db.ObjectId
+  subjectId      String                  @db.ObjectId
+  status         RoadmapEnrollmentStatus @default(ACTIVE)
+  /// Ngày (00:00 theo `timezone`) buổi mốc `anchorNumber` được xếp.
+  anchorDate     DateTime
+  /// Số thứ tự buổi mốc — đăng ký = buổi đầu; dời lịch = buổi chưa xong kế tiếp.
+  anchorNumber   Int
+  studyDays      Int[]
+  timezone       String                  @default("Asia/Ho_Chi_Minh")
+  completedCount Int                     @default(0)
+  requiredDone   Int                     @default(0)
+  lastLessonId   String?                 @db.ObjectId
+  lastActivityAt DateTime?
+  rescheduledAt  DateTime?
+  completedAt    DateTime?
+  version        Int                     @default(1)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  @@unique([userId, subjectId])
+  @@index([userId, status])
+}
+
+model RoadmapLessonProgress {
+  id             String                @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String                @db.ObjectId
+  subjectId      String                @db.ObjectId
+  lessonId       String                @db.ObjectId
+  status         RoadmapProgressStatus @default(NOT_STARTED)
+  checkedItemIds String[]
+  /// 1 😕 · 2 🤔 · 3 😊
+  selfRating     Int?
+  note           String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  version        Int                   @default(1)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@unique([userId, lessonId])
+  @@index([userId, subjectId])
+}
+
+// ── webhooks (p0-08) — nhận + dedupe webhook nhà cung cấp; LiveKit dùng ngay, p5-03 dùng lại cho GITHUB/GITLAB/GOOGLE/FIGMA ──
+enum WebhookProvider {
+  LIVEKIT
+  GITHUB
+  GITLAB
+  GOOGLE
+  FIGMA
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+  IGNORED
+}
+
+model WebhookEvent {
+  id          String             @id @default(auto()) @map("_id") @db.ObjectId
+  provider    WebhookProvider
+  /// LiveKit: `event.id`; GitHub: `X-GitHub-Delivery` — duy nhất theo (provider, eventId) để dedupe.
+  eventId     String
+  /// "participant_joined", "egress_ended", ...
+  type        String
+  roomName    String?
+  /// sha256(rawBody) hex — KHÔNG lưu nguyên payload.
+  payloadHash String
+  /// Bản rút gọn đã lọc (room, participant.identity, egress status) để xử lý/gỡ lỗi — KHÔNG chứa token/nội dung riêng tư.
+  payload     Json?
+  status      WebhookEventStatus @default(RECEIVED)
+  error       String?
+  attempts    Int                @default(0)
+  receivedAt  DateTime           @default(now())
+  processedAt DateTime?
+  /// (p5-03) `Integration` khớp với sự kiện (null = không khớp kết nối nào / sự kiện LiveKit). Ghi null TƯỜNG MINH lúc tạo.
+  integrationId String?          @db.ObjectId
+  /// (p5-03) Tóm tắt 1 dòng đã che dữ liệu nhạy cảm (hiện ở log sự kiện app/admin) — KHÔNG chứa token/email.
+  summary       String?
+  /// (p5-03) Tin hệ thống `INTEGRATION` đã đăng vào kênh/nhóm chat (null khi chưa đăng/IGNORED/FAILED).
+  messageId     String?          @db.ObjectId
+  /// (p5-03) Sự kiện gốc khi đây là bản PHÁT LẠI (`eventId = <gốc>:replay:<n>`).
+  replayOf      String?          @db.ObjectId
+
+  @@unique([provider, eventId])
+  @@index([provider, status, receivedAt])
+  @@index([roomName, receivedAt])
+  @@index([integrationId, receivedAt])
+}
+
+// ── integrations (p5-03) — tích hợp GitHub / GitLab / Figma (cấp workspace) và Google Calendar (cấp người dùng) ──
+// Token/secret CHỈ lưu dạng mã hoá AES-GCM (`{ ciphertext, iv, tag, keyVersion }`, `core/utils/crypto.ts`); không bao giờ trả qua API.
+enum IntegrationProvider {
+  GITHUB
+  GITLAB
+  GOOGLE_CALENDAR
+  FIGMA
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  ERROR
+  REVOKED
+  DISABLED
+}
+
+model Integration {
+  id                String              @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId       String              @db.ObjectId
+  provider          IntegrationProvider
+  /// GitHub: installationId · GitLab: id người dùng · Figma: id người dùng.
+  externalAccountId String
+  /// Tên hiển thị của tài khoản/tổ chức bên ngoài (login/org).
+  externalName      String
+  /// `{ ciphertext, iv, tag, keyVersion }` — GitHub App KHÔNG lưu token (token cài đặt sinh theo yêu cầu). Không bao giờ chọn mặc định.
+  credentials       Json?
+  tokenExpiresAt    DateTime?
+  scopes            String[]
+  /// `{ repos: [{ id, fullName }], events: string[] }` — `repos` là "tài nguyên theo dõi" chung: repo GitHub, project GitLab, file Figma.
+  config            Json
+  /// `CHANNEL` | `CONVERSATION` (nhóm chat GROUP — P1).
+  targetScopeType   String
+  targetScopeId     String              @db.ObjectId
+  /// sha256 hex của token GitLab / passcode Figma (chỉ để đối chiếu hằng thời gian khi nhận webhook).
+  webhookSecretHash String?
+  /// Id hook đã tạo ở nhà cung cấp để xoá khi ngắt kết nối (GitLab `<projectId>:<hookId>`, Figma `<webhookId>`).
+  externalHookIds   String[]
+  status            IntegrationStatus   @default(ACTIVE)
+  /// `TARGET_FORBIDDEN` | `TARGET_ARCHIVED` | `PROVIDER_REVOKED` | `TOKEN_INVALID` | `PROVIDER_SUSPENDED` … (nhãn tiếng Việt ở app/admin).
+  statusReason      String?
+  createdBy         String              @db.ObjectId
+  lastEventAt       DateTime?
+  version           Int                 @default(1)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([workspaceId, provider, externalAccountId])
+  @@index([provider, externalAccountId])
+  @@index([status])
+  @@index([targetScopeId])
+  @@index([webhookSecretHash])
+}
+
+model UserIntegration {
+  id                String              @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String              @db.ObjectId
+  /// Hiện chỉ `GOOGLE_CALENDAR`.
+  provider          IntegrationProvider
+  /// Email tài khoản Google (chỉ chủ tài khoản thấy).
+  externalAccountId String
+  /// `{ ciphertext, iv, tag, keyVersion }` của `{ accessToken, refreshToken }`; null khi REVOKED (đã xoá token).
+  credentials       Json?
+  tokenExpiresAt    DateTime?
+  calendarId        String              @default("primary")
+  status            IntegrationStatus   @default(ACTIVE)
+  statusReason      String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([userId, provider])
+  @@index([status, provider])
+}
+
+model CalendarEventLink {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  meetingId         String    @db.ObjectId
+  userId            String    @db.ObjectId
+  userIntegrationId String    @db.ObjectId
+  externalEventId   String
+  etag              String?
+  /// `Meeting.version` đã đẩy lên lịch ngoài — bỏ qua job có version ≤ giá trị này (idempotent).
+  syncedVersion     Int
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([meetingId, userId])
+  @@index([userIntegrationId])
+}
+
+// ── calls (p2-01) ──
+// Mongo là nguồn sự thật của vòng đời cuộc gọi; Redis chỉ giữ khoá nóng `call:active|busy|lock` (D-17).
+// `activeKey` KHÔNG null ("<scopeType>:<scopeId>" khi chưa ENDED, "ended:<id>" khi ENDED) ⇒ unique chống hai cuộc gọi
+// song song trong một phạm vi kể cả khi Redis mất khoá. `@@unique([initiatorId, clientCallId])` ⇒ POST /calls idempotent.
+enum CallScopeType {
+  CONVERSATION
+  CHANNEL
+  MEETING
+}
+
+enum CallMode {
+  RING
+  ROOM
+}
+
+enum CallMediaKind {
+  AUDIO
+  VIDEO
+}
+
+enum CallStatus {
+  RINGING
+  ACTIVE
+  ENDED
+}
+
+enum CallEndReason {
+  COMPLETED
+  CANCELLED
+  NO_ANSWER
+  DECLINED
+  BUSY
+  FAILED
+  REVOKED
+  ARCHIVED
+  HOST_ENDED
+  /// p2-07 — admin nền tảng kết thúc cưỡng bức.
+  FORCE_ENDED
+  /// p2-05/p2-03 — phòng ROOM trống quá hạn (LiveKit `emptyTimeout`).
+  EMPTY
+  /// p2-05 — họp quá `LIMITS.meeting.maxMinutes`.
+  MAX_DURATION
+}
+
+enum CallParticipantRole {
+  INITIATOR
+  HOST
+  CO_HOST
+  MEMBER
+}
+
+enum CallParticipantState {
+  INVITED
+  RINGING
+  DECLINED
+  MISSED
+  BUSY
+  JOINING
+  CONNECTED
+  RECONNECTING
+  LEFT
+  REMOVED
+}
+
+enum CallOutcome {
+  COMPLETED
+  MISSED
+  DECLINED
+  BUSY
+  CANCELLED
+  NO_ANSWER
+  OUTGOING_UNANSWERED
+}
+
+type CallPublishPermissions {
+  audio  Boolean @default(true)
+  video  Boolean @default(true)
+  screen Boolean @default(false)
+}
+
+model Call {
+  id               String         @id @default(auto()) @map("_id") @db.ObjectId
+  scopeType        CallScopeType
+  scopeId          String         @db.ObjectId
+  workspaceId      String?        @db.ObjectId
+  mode             CallMode
+  mediaKind        CallMediaKind
+  status           CallStatus     @default(RINGING)
+  endReason        CallEndReason?
+  initiatorId      String         @db.ObjectId
+  /// ROOM (p2-03/p2-05); RING: null.
+  hostId           String?        @db.ObjectId
+  /// "call_<id>" | "meet_<code>".
+  livekitRoom      String         @unique
+  clientCallId     String
+  /// "<scopeType>:<scopeId>" khi status != ENDED; "ended:<id>" khi ENDED — tầng 2 chống trùng cuộc gọi.
+  activeKey        String         @unique
+  invitedCount     Int            @default(0)
+  peakParticipants Int            @default(0)
+  startedAt        DateTime       @default(now())
+  answeredAt       DateTime?
+  endedAt          DateTime?
+  durationSec      Int?
+  endedBy          String?        @db.ObjectId
+  lastReconciledAt DateTime?
+  version          Int            @default(1)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  participants     CallParticipant[]
+
+  @@unique([initiatorId, clientCallId])
+  @@index([scopeType, scopeId, startedAt])
+  @@index([status, startedAt])
+  @@index([status, lastReconciledAt])
+  @@index([workspaceId, startedAt])
+}
+
+model CallParticipant {
+  id                 String                 @id @default(auto()) @map("_id") @db.ObjectId
+  callId             String                 @db.ObjectId
+  call               Call                   @relation(fields: [callId], references: [id], onDelete: Cascade)
+  userId             String                 @db.ObjectId
+  role               CallParticipantRole
+  state              CallParticipantState
+  invitedAt          DateTime?
+  invitedBy          String?                @db.ObjectId
+  /// p2-07 — lúc vào JOINING gần nhất (reconcile đưa LEFT khi > 30 s không thấy trong LiveKit).
+  joiningAt          DateTime?
+  respondedAt        DateTime?
+  respondedDeviceId  String?
+  firstJoinedAt      DateTime?
+  lastJoinedAt       DateTime?
+  lastLeftAt         DateTime?
+  connectedSeconds   Int                    @default(0)
+  publishPermissions CallPublishPermissions
+  handRaisedAt       DateTime?
+  mutedByHost        Boolean                @default(false)
+  removedBy          String?                @db.ObjectId
+  /// p2-02 — thiết bị của NGƯỜI ĐƯỢC GỌI xác nhận đã nhận/hiển thị cuộc gọi tới (`POST /calls/:id/ack`): lần xác nhận gần nhất + tối đa 5 `deviceId`.
+  lastRingAckAt      DateTime?
+  ringAckDeviceIds   String[]
+  // denormalize cho lịch sử (không cần join Call khi liệt kê)
+  callStartedAt      DateTime
+  scopeType          CallScopeType
+  scopeId            String                 @db.ObjectId
+  mediaKind          CallMediaKind
+  mode               CallMode
+  /// Tính khi call ENDED, theo góc nhìn người này.
+  outcome            CallOutcome?
+  version            Int                    @default(1)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  @@unique([callId, userId])
+  @@index([userId, callStartedAt])
+  @@index([userId, outcome, callStartedAt])
+  @@index([userId, state])
+  @@index([callId, state])
+  /// p2-07 — thống kê "tỉ lệ thiết lập ≤ 20 s" theo khoảng thời gian (`GET /admin/calls/stats`) quét theo `callStartedAt`.
+  @@index([callStartedAt, joiningAt])
+}
+
+// ── meetings (p2-04) ──
+// Cuộc họp là thực thể lịch hẹn (D-18); phòng họp là `Call scopeType=MEETING mode=ROOM` tạo khi bắt đầu (p2-05).
+// Mongo không có partial unique: đúng một attendee `role=HOST && removedAt=null` do service bảo đảm.
+enum MeetingFormat {
+  ONLINE
+  OFFLINE
+  HYBRID
+}
+
+enum MeetingPlatform {
+  INTERNAL
+  ZOOM
+  TEAMS
+  GOOGLE_MEET
+  OTHER
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+  CANCELLED
+}
+
+enum MeetingVisibility {
+  ATTENDEES
+  WORKSPACE
+}
+
+enum MeetingLobbyMode {
+  OFF
+  NON_ATTENDEES
+  ALL
+}
+
+enum MeetingNotifyVia {
+  APP
+  CHAT
+  BOTH
+}
+
+enum MeetingEndReason {
+  HOST_ENDED
+  EMPTY
+  MAX_DURATION
+  FORCE_ENDED
+  WORKSPACE_ARCHIVED
+  HOST_REMOVED
+}
+
+enum MeetingAttendeeRole {
+  HOST
+  CO_HOST
+  ATTENDEE
+}
+
+enum MeetingRsvp {
+  PENDING
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}
+
+enum MeetingAttendeeSource {
+  INVITED
+  JOINED_VIA_LINK
+  SERIES
+}
+
+enum MeetingSeriesStatus {
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+model Meeting {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId       String            @db.ObjectId
+  /// "abc-defg-hij"
+  code              String            @unique
+  title             String
+  normalizedTitle   String
+  agenda            String?
+  format            MeetingFormat     @default(ONLINE)
+  location          String?
+  platform          MeetingPlatform   @default(INTERNAL)
+  externalUrl       String?
+  startAt           DateTime
+  endAt             DateTime
+  /// IANA
+  timezone          String
+  /// P1
+  seriesId          String?           @db.ObjectId
+  occurrenceIndex   Int?
+  isSeriesException Boolean           @default(false)
+  status            MeetingStatus     @default(SCHEDULED)
+  hostId            String            @db.ObjectId
+  visibility        MeetingVisibility @default(ATTENDEES)
+  lobbyMode         MeetingLobbyMode  @default(NON_ATTENDEES)
+  joinWindowMinutes Int               @default(10)
+  reminderMinutes   Int[]
+  notifyVia         MeetingNotifyVia  @default(APP)
+  recapRequired     Boolean           @default(false)
+  recordingAllowed  Boolean           @default(true)
+  createChatGroup   Boolean           @default(false)
+  conversationId    String?           @db.ObjectId
+  /// p2-05 điền.
+  currentCallId     String?           @db.ObjectId
+  /// p2-05.
+  lockedAt          DateTime?
+  startedAt         DateTime?
+  endedAt           DateTime?
+  endReason         MeetingEndReason?
+  cancelledAt       DateTime?
+  cancelledBy       String?           @db.ObjectId
+  cancelReason      String?
+  deletedAt         DateTime?
+  deletedBy         String?           @db.ObjectId
+  attendeeCount     Int               @default(1)
+  createdBy         String            @db.ObjectId
+  version           Int               @default(1)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([workspaceId, startAt])
+  @@index([workspaceId, status, startAt])
+  @@index([hostId, startAt])
+  @@index([status, startAt])
+  @@index([seriesId, startAt])
+}
+
+model MeetingAttendee {
+  id              String                @id @default(auto()) @map("_id") @db.ObjectId
+  meetingId       String                @db.ObjectId
+  /// phi chuẩn hoá
+  workspaceId     String                @db.ObjectId
+  userId          String                @db.ObjectId
+  role            MeetingAttendeeRole   @default(ATTENDEE)
+  rsvp            MeetingRsvp           @default(PENDING)
+  rsvpAt          DateTime?
+  source          MeetingAttendeeSource @default(INVITED)
+  invitedBy       String?               @db.ObjectId
+  invitedAt       DateTime              @default(now())
+  removedAt       DateTime?
+  removedBy       String?               @db.ObjectId
+  /// p2-05
+  firstJoinedAt   DateTime?
+  /// p2-05
+  attendedSeconds Int                   @default(0)
+  /// phi chuẩn hoá — cập nhật cùng transaction đổi giờ/trạng thái cuộc họp
+  meetingStartAt  DateTime
+  meetingEndAt    DateTime
+  meetingStatus   MeetingStatus
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([meetingId, userId])
+  @@index([userId, meetingStartAt])
+  @@index([meetingId, role])
+  @@index([workspaceId, userId])
+}
+
+/// P1 — lịch lặp lại; mỗi buổi được vật chất hoá thành `Meeting` có `seriesId` (cửa sổ trượt 60 ngày).
+model MeetingSeries {
+  id                String              @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId       String              @db.ObjectId
+  hostId            String              @db.ObjectId
+  /// { freq: DAILY|WEEKLY, interval, byWeekday: ["MO",...], until?, count? }
+  rule              Json
+  timezone          String
+  /// "09:00" theo timezone
+  localStartTime    String
+  durationMinutes   Int
+  /// title, agenda, format, location, platform, externalUrl, visibility, lobbyMode, reminderMinutes, notifyVia, recapRequired, recordingAllowed, createChatGroup
+  template          Json
+  attendeeIds       String[]            @db.ObjectId
+  coHostIds         String[]            @db.ObjectId
+  materializedUntil DateTime
+  status            MeetingSeriesStatus @default(ACTIVE)
+  createdBy         String              @db.ObjectId
+  version           Int                 @default(1)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([workspaceId, status])
+  @@index([status, materializedUntil])
+}
+
+// ── study-mock (p4-02) ── Thi thử có giờ + ôn tập ngắt quãng SM-2 (dùng lại StudySet/StudyItem/StudyOption của p4-01) ──
+enum MockAttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  EXPIRED
+}
+
+enum MockSubmitMode {
+  MANUAL
+  AUTO
+}
+
+enum SrStatus {
+  NEW
+  LEARNING
+  REVIEW
+  SUSPENDED
+}
+
+enum SrRating {
+  AGAIN
+  HARD
+  GOOD
+  EASY
+}
+
+enum SrSource {
+  ENROLL
+  MOCK_WRONG
+}
+
+type MockConfig {
+  count       Int
+  durationSec Int
+  shuffle     Boolean @default(true)
+  passPct     Int     @default(50)
+}
+
+/// Snapshot câu hỏi lúc bắt đầu — KHÔNG trả đáp án cho client trước khi nộp.
+type MockQuestion {
+  itemId            String        @db.ObjectId
+  type              StudyItemType
+  prompt            String
+  /// Đã theo thứ tự hiển thị (nếu shuffle).
+  options           StudyOption[]
+  correctOptionIds  String[]
+  acceptedAnswers   String[]
+  matchMode         FillMatchMode
+  explanation       String?
+  frontMediaAssetId String?       @db.ObjectId
+  tags              String[]
+}
+
+type MockTagScore {
+  tag     String
+  correct Int
+  total   Int
+}
+
+model MockAttempt {
+  id               String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String            @db.ObjectId
+  setId            String            @db.ObjectId
+  /// Snapshot cho lịch sử (bộ có thể bị sửa/xoá).
+  setTitle         String
+  setVersion       Int
+  config           MockConfig
+  questions        MockQuestion[]
+  status           MockAttemptStatus @default(IN_PROGRESS)
+  /// "userId:setId" khi IN_PROGRESS (unique ⇒ một lượt dở/bộ); "done:id" khi kết thúc.
+  activeKey        String            @unique
+  startedAt        DateTime          @default(now())
+  expiresAt        DateTime
+  submittedAt      DateTime?
+  submitMode       MockSubmitMode?
+  answeredCount    Int               @default(0)
+  correctCount     Int?
+  scorePct         Float?
+  passed           Boolean?
+  byTag            MockTagScore[]
+  backgroundCount  Int               @default(0)
+  backgroundMs     Int               @default(0)
+  lastBackgroundAt DateTime?
+  eventCount       Int               @default(0)
+  version          Int               @default(1)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([userId, setId, startedAt])
+  @@index([userId, startedAt])
+  @@index([status, expiresAt])
+}
+
+model MockAnswer {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  attemptId  String   @db.ObjectId
+  userId     String   @db.ObjectId
+  itemId     String   @db.ObjectId
+  optionIds  String[]
+  text       String?
+  timeMs     Int      @default(0)
+  /// Điền lúc chấm (null = chưa chấm / trả lời muộn sau khi đã nộp).
+  correct    Boolean?
+  partial    Float?
+  answeredAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([attemptId, itemId])
+}
+
+model SrEnrollment {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String   @db.ObjectId
+  setId         String   @db.ObjectId
+  active        Boolean  @default(true)
+  newPerDay     Int      @default(20)
+  /// StudySet.version đã đồng bộ mục sang SrProgress lần gần nhất (mục thêm sau khi đăng ký được nạp lúc đọc hàng đợi).
+  syncedVersion Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, setId])
+  @@index([userId, active])
+}
+
+model SrProgress {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String    @db.ObjectId
+  itemId          String    @db.ObjectId
+  setId           String    @db.ObjectId
+  status          SrStatus  @default(NEW)
+  source          SrSource
+  easiness        Float     @default(2.5)
+  /// Ngày.
+  interval        Int       @default(0)
+  repetition      Int       @default(0)
+  lapses          Int       @default(0)
+  /// NEW: thời điểm đăng ký.
+  nextReviewAt    DateTime
+  lastRating      SrRating?
+  lastReviewedAt  DateTime?
+  /// Thứ tự mục trong bộ lúc đăng ký — thẻ NEW được đưa vào hàng đợi theo thứ tự này.
+  itemOrder       Float     @default(0)
+  /// LOST_ACCESS | SET_HIDDEN
+  suspendedReason String?
+  version         Int       @default(1)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([userId, itemId])
+  @@index([userId, status, nextReviewAt])
+  @@index([userId, setId])
+  @@index([setId])
+}
+
+model SrReviewLog {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @db.ObjectId
+  itemId         String   @db.ObjectId
+  setId          String   @db.ObjectId
+  clientReviewId String
+  rating         SrRating
+  /// q SM-2: 1, 3, 4 hoặc 5.
+  grade          Int
+  prevInterval   Int
+  newInterval    Int
+  /// "YYYY-MM-DD" theo múi giờ tài khoản tại reviewedAt.
+  localDate      String
+  reviewedAt     DateTime @default(now())
+
+  @@unique([userId, clientReviewId])
+  @@index([userId, localDate])
+  @@index([userId, itemId, localDate])
+}
+
+// ── gamification (p4-03) ── XP, cấp độ, chuỗi ngày, huy hiệu ──
+enum XpSourceType {
+  TASK_COMPLETED
+  TASK_ON_TIME
+  QUIZ_SCORED
+  QUIZ_PASSED
+  SR_REVIEW
+  SR_REVIEW_DAY
+  REVIEW_SUBMITTED
+  STUDY_SET_PUBLISHED
+  POMODORO_CYCLE
+  /// p4-07 — hoàn thành buổi học lộ trình (không thuộc workspace nào).
+  ROADMAP_LESSON
+  ADMIN_ADJUST
+}
+
+enum BadgeRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+model XpRule {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  sourceType      XpSourceType @unique
+  /// ADMIN_ADJUST: 0 (không dùng).
+  xp              Int
+  /// null = không cap.
+  dailyCap        Int?
+  countsForStreak Boolean      @default(false)
+  isActive        Boolean      @default(true)
+  version         Int          @default(1)
+  updatedBy       String?      @db.ObjectId
+  updatedAt       DateTime     @updatedAt
+}
+
+model XpEvent {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  /// "sourceType:sourceId:userId" — sourceId là THỰC THỂ NGUỒN (taskId, attemptId, ngày ôn…), không phải dedupeKey outbox.
+  dedupeKey     String       @unique
+  userId        String       @db.ObjectId
+  sourceType    XpSourceType
+  sourceId      String
+  workspaceId   String?      @db.ObjectId
+  /// Có thể 0 (vượt cap / luật tắt / chống farm) — counters và streak vẫn tăng.
+  xp            Int
+  capped        Boolean      @default(false)
+  /// MIN_TASK_AGE | RULE_INACTIVE
+  blockedReason String?
+  /// "YYYY-MM-DD" theo tz user tại occurredAt.
+  localDate     String
+  occurredAt    DateTime
+  /// ADMIN_ADJUST
+  actorId       String?      @db.ObjectId
+  reason        String?
+  createdAt     DateTime     @default(now())
+
+  @@index([userId, createdAt])
+  @@index([workspaceId, occurredAt])
+}
+
+model XpDailyTotal {
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String       @db.ObjectId
+  sourceType XpSourceType
+  localDate  String
+  xp         Int          @default(0)
+
+  @@unique([userId, sourceType, localDate])
+}
+
+type GamificationCounters {
+  tasksDone      Int @default(0)
+  tasksOnTime    Int @default(0)
+  quizzesTaken   Int @default(0)
+  quizzesPassed  Int @default(0)
+  /// scorePct ≥ 90
+  quizHighScores Int @default(0)
+  srReviews      Int @default(0)
+  srReviewDays   Int @default(0)
+  reviewsGiven   Int @default(0)
+  setsPublished  Int @default(0)
+  longestStreak  Int @default(0)
+}
+
+model UserGamification {
+  id               String               @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String               @unique @db.ObjectId
+  xp               Int                  @default(0)
+  level            Int                  @default(1)
+  streak           Int                  @default(0)
+  /// YYYY-MM-DD
+  lastActiveDate   String?
+  streakTz         String?
+  counters         GamificationCounters
+  showcaseBadgeIds String[]             @db.ObjectId
+  levelUpSeenLevel Int                  @default(1)
+  version          Int                  @default(1)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([xp])
+}
+
+model Badge {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  /// Ví dụ "tasks-50".
+  code        String      @unique
+  name        String
+  description String
+  emoji       String?
+  iconAssetId String?     @db.ObjectId
+  /// criteriaSchema (shared/criteria/criteria-evaluator.ts)
+  criteria    Json
+  /// Counter mà criteria dùng — chỉ đánh giá badge có counter vừa đổi.
+  counters    String[]
+  rarity      BadgeRarity @default(COMMON)
+  isActive    Boolean     @default(true)
+  order       Int         @default(0)
+  version     Int         @default(1)
+  createdBy   String?     @db.ObjectId
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([isActive, counters])
+}
+
+model UserBadge {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String    @db.ObjectId
+  badgeId      String    @db.ObjectId
+  unlockedAt   DateTime  @default(now())
+  seenAt       DateTime?
+  /// EVENT | BACKFILL
+  via          String    @default("EVENT")
+  revokedAt    DateTime?
+  revokedBy    String?   @db.ObjectId
+  revokeReason String?
+
+  @@unique([userId, badgeId])
+  @@index([badgeId])
+}
+
+// ── live-quiz (p5-01) ── Phiên thi đấu trực tiếp từ bộ học (StudySet/StudyItem của p4-01). Điểm/đáp án trong phiên nằm ở Redis (Lua);
+// Mongo chỉ ghi phiên (metadata + CAS `version`) và kết quả bền khi kết thúc (write-behind qua outbox `live-quiz.persist`).
+enum LiveQuizStatus {
+  WAITING
+  IN_PROGRESS
+  FINISHED
+  CANCELLED
+}
+
+enum LiveQuizEndReason {
+  HOST_ENDED
+  HOST_TIMEOUT
+  COMPLETED
+  ADMIN_ENDED
+  EXPIRED
+}
+
+model LiveQuizSession {
+  id                 String             @id @default(auto()) @map("_id") @db.ObjectId
+  setId              String             @db.ObjectId
+  /// Ảnh chụp tiêu đề bộ lúc tạo (danh sách admin / lịch sử không cần đọc lại bộ).
+  setTitle           String
+  workspaceId        String?            @db.ObjectId
+  hostId             String             @db.ObjectId
+  /// 6 chữ số; duy nhất trong các phiên WAITING/IN_PROGRESS nhờ Redis `SET NX quiz:pin:<pin>` (Mongo không có partial unique).
+  pin                String
+  status             LiveQuizStatus     @default(WAITING)
+  /// Thứ tự id `StudyItem` (đã chọn + xáo) lúc tạo phiên.
+  questionOrder      String[]           @db.ObjectId
+  currentIndex       Int                @default(-1)
+  questionStartedAt  DateTime?
+  deadlineAt         DateTime?
+  secondsPerQuestion Int
+  revealSeconds      Int                @default(5)
+  autoAdvance        Boolean            @default(false)
+  /// { base, speedBonus } — chốt lúc tạo để đổi `LIMITS` không làm lệch phiên đang chạy.
+  scoring            Json
+  playersCount       Int                @default(0)
+  /// CAS cho start/next/end/cancel (hai host lệnh `next` cùng lúc chỉ một thắng — LQ-05).
+  version            Int                @default(1)
+  startedAt          DateTime?
+  endedAt            DateTime?
+  endReason          LiveQuizEndReason?
+  /// null (GHI TƯỜNG MINH lúc tạo) tới khi job `live-quiz.persist` ghi xong kết quả — bộ lọc `{ resultsPersistedAt: null }`.
+  resultsPersistedAt DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([hostId, createdAt])
+  @@index([workspaceId, status])
+  @@index([pin, status])
+  @@index([status, updatedAt])
+}
+
+model LiveQuizResult {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String   @db.ObjectId
+  userId    String   @db.ObjectId
+  nickname  String?
+  score     Int
+  correct   Int
+  answered  Int
+  rank      Int
+  /// [{ index, itemId, choice, correct, ms, points }] — theo thứ tự câu.
+  answers   Json
+  createdAt DateTime @default(now())
+
+  @@unique([sessionId, userId])
+  @@index([userId, createdAt])
+}
+
+// ── templates (p5-04) — mẫu workspace (seed bằng `npm run db:seed:templates`, admin chỉ sửa/bật-tắt) ──
+model WorkspaceTemplate {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  /// course | capstone | self-study — khoá công khai, không đổi.
+  code        String   @unique
+  name        String
+  description String
+  /// [{ key, name, description, type, visibility, postingPolicy, defaultSelected }] — 1–15 kênh, KHÔNG có kênh "Chung" (tự tạo).
+  channels    Json
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  version     Int      @default(1)
+  updatedBy   String?  @db.ObjectId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, order])
+}
+
+/// Nhật ký áp mẫu cho workspace — idempotent theo `(appliedBy, idempotencyKey)`.
+model WorkspaceTemplateApplication {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId       String   @db.ObjectId
+  templateCode      String
+  channelKeys       String[]
+  createdChannelIds String[] @db.ObjectId
+  skippedKeys       String[]
+  appliedBy         String   @db.ObjectId
+  idempotencyKey    String
+  createdAt         DateTime @default(now())
+
+  @@unique([appliedBy, idempotencyKey])
+  @@index([workspaceId])
+}
+
+// ── announcements (p5-04) — yêu cầu xác nhận đã đọc một tin trong kênh ADMINS_ONLY ──
+model AnnouncementRequest {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  messageId      String    @unique @db.ObjectId
+  channelId      String    @db.ObjectId
+  workspaceId    String    @db.ObjectId
+  requestedBy    String    @db.ObjectId
+  /// null (GHI TƯỜNG MINH lúc tạo) khi không có hạn.
+  deadlineAt     DateTime?
+  confirmedCount Int       @default(0)
+  /// null (GHI TƯỜNG MINH lúc tạo) tới khi người yêu cầu/quản trị kênh huỷ — bộ lọc `{ cancelledAt: null }`.
+  cancelledAt    DateTime?
+  cancelledBy    String?   @db.ObjectId
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([channelId, cancelledAt])
+  @@index([deadlineAt])
+}
+
+/// Chỉ tạo khi người nhận CHỦ ĐỘNG bấm "Đã đọc" — không suy từ mốc đọc (`ReadState`).
+model AnnouncementReceipt {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  requestId   String   @db.ObjectId
+  userId      String   @db.ObjectId
+  confirmedAt DateTime @default(now())
+
+  @@unique([requestId, userId])
+  @@index([requestId, confirmedAt])
+}
+
+// ── contribution ── (p4-06 Báo cáo đóng góp & heatmap hoạt động — module `contribution`, KHÔNG chồng vào `projects`)
+// Đọc dữ liệu của `projects`/`peer-review` chỉ qua sự kiện (sink `task.events`, outbox `review.submitted`) và truy vấn chỉ-đọc; nơi DUY NHẤT
+// module này ghi vào bảng của module khác là trường `Board.contribution` (Json, p3-02 dành riêng cho p4-06).
+enum ContributionExportStatus {
+  QUEUED
+  RUNNING
+  READY
+  FAILED
+  EXPIRED
+}
+
+/// Thẻ ĐÃ hoàn thành — một bản ghi/thẻ (unique `taskId`). Cập nhật theo `completionCount` nên idempotent và chịu được sự kiện tới lệch thứ tự.
+/// Thẻ xoá mềm KHÔNG xoá fact (dữ liệu đóng góp lịch sử).
+model ContributionTaskFact {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  taskId          String    @unique @db.ObjectId
+  boardId         String    @db.ObjectId
+  workspaceId     String    @db.ObjectId
+  /// Người làm TẠI LÚC hoàn thành — điểm thẻ chia đều cho danh sách này.
+  assigneeIds     String[]  @db.ObjectId
+  /// null = chưa gán điểm (tính `unestimatedPoints` của cấu hình).
+  storyPoints     Int?
+  dueDate         DateTime?
+  completedAt     DateTime
+  /// `n` trong dedupeKey `task.completed:task:<id>:c<n>`.
+  completionCount Int
+  /// false khi thẻ đã mở lại (hoặc bản giữ chỗ do `task.reopened c<n>` tới trước `task.completed c<n>`).
+  active          Boolean   @default(true)
+  /// `task.completed.review.approved` (p4-05) — lưu để đối chiếu, không dùng trong công thức.
+  reviewApproved  Boolean?
+  updatedAt       DateTime  @updatedAt
+
+  @@index([boardId, active, completedAt])
+  @@index([workspaceId, assigneeIds, completedAt])
+}
+
+/// Lượt chấm chéo ĐÃ NỘP (Duyệt hoặc Yêu cầu sửa) — insert-only theo `reviewId`.
+model ContributionReviewFact {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  reviewId    String   @unique @db.ObjectId
+  taskId      String   @db.ObjectId
+  boardId     String   @db.ObjectId
+  workspaceId String   @db.ObjectId
+  reviewerId  String   @db.ObjectId
+  /// Người làm của thẻ TẠI LÚC chấm — điểm chấm tính cho các người này.
+  assigneeIds String[] @db.ObjectId
+  /// APPROVED | REQUEST_CHANGES
+  status      String
+  /// null khi lượt không có điểm (không vào điểm chấm trung bình).
+  score10     Float?
+  submittedAt DateTime
+
+  @@index([boardId, submittedAt])
+  @@index([boardId, reviewerId, submittedAt])
+}
+
+/// Kết quả tính sẵn theo `(bảng, người, kỳ)` — `ALL` và các tháng `M:yyyy-mm` có dữ liệu (tuần tính khi xem, không lưu).
+model ContributionSnapshot {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId      String   @db.ObjectId
+  boardId          String   @db.ObjectId
+  userId           String   @db.ObjectId
+  /// "ALL" | "M:2026-09"
+  periodKey        String
+  /// Đã chia đều cho người làm.
+  storyPointsDone  Float
+  tasksDone        Int
+  unestimatedTasks Int
+  tasksWithDue     Int
+  tasksOnTime      Int
+  tasksLate        Int
+  reviewCount      Int
+  peerScoreAvg     Float?
+  /// { points: 0..1 | null, onTime: 0..1 | null, peer: 0..1 | null }
+  components       Json
+  /// 0..100, 1 chữ số.
+  score            Float
+  /// 0..100, 1 chữ số, tổng cả nhóm = 100,0 (phần dư lớn nhất).
+  share            Float
+  /// { points, onTime, peer } sau khi chia lại cho thành phần có dữ liệu.
+  weightsUsed      Json
+  /// Tổng của CẢ NHÓM trong kỳ (mỗi thẻ tính một lần, kể cả thẻ nhiều người làm) — lặp lại ở mọi dòng của bảng/kỳ.
+  teamTasksDone    Int      @default(0)
+  teamStoryPoints  Float    @default(0)
+  formulaVersion   Int      @default(1)
+  computedAt       DateTime
+
+  @@unique([boardId, userId, periodKey])
+  @@index([boardId, periodKey])
+  /// p6-07/p6-08 (`ContributionReadPort`).
+  @@index([userId, periodKey])
+  @@index([workspaceId, userId, periodKey])
+}
+
+/// Trạng thái tính toán của MỘT bảng: phiên bản fact/cấu hình + thời điểm/người đổi trọng số + cờ làm mới heatmap.
+model ContributionBoardState {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  boardId             String    @unique @db.ObjectId
+  workspaceId         String    @db.ObjectId
+  /// +1 mỗi lần fact đổi thật.
+  factsVersion        Int       @default(0)
+  /// = `factsVersion` lúc job tính lại bắt đầu; `factsVersion > computedVersion` ⇒ báo cáo `stale`.
+  computedVersion     Int       @default(0)
+  computedAt          DateTime?
+  /// CAS của `PUT /boards/:id/contribution-config` (`expectedVersion`).
+  configVersion       Int       @default(0)
+  configChangedAt     DateTime?
+  configChangedBy     String?   @db.ObjectId
+  previousWeights     Json?
+  /// Mặc định nền tảng ĐÓNG BĂNG lúc bảng có state đầu tiên: bảng chưa được chủ nhóm tuỳ chỉnh (`Board.contribution` trống)
+  /// không đổi công thức âm thầm khi admin đổi `pm.contribution`.
+  defaultsSnapshot    Json?
+  /// Có hoạt động mới (sink `task.events`, lượt chấm) chờ job `activity.aggregate` tính lại ô heatmap.
+  activityDirtyAt     DateTime?
+  /// Lần cuối các ô heatmap gần đây được tính lại từ nguồn (giới hạn tần suất làm mới khi xem).
+  activityRefreshedAt DateTime?
+  /// Múi giờ đã dùng cho snapshot `ALL`/`M:*` gần nhất (`markComputed`). Khác `pm.timezone` hiện hành ⇒ ranh giới tháng/hạn đã đổi: báo cáo tính tại chỗ + xếp tính lại.
+  snapshotTimezone    String?
+  /// Múi giờ của các ô `ActivityDaily` đã lấp (chỉ đặt sau lần dựng lại TOÀN BỘ lịch sử). Khác `pm.timezone` hiện hành ⇒ lần làm mới kế tiếp dựng lại cả lịch sử.
+  activityTimezone    String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([workspaceId])
+  @@index([activityDirtyAt])
+}
+
+/// Đếm hoạt động THEO NGÀY cho heatmap — chỉ ngày + số, KHÔNG lưu giờ (riêng tư). Ô rỗng bị xoá; ghi bằng `$set` từ đếm nguồn (idempotent).
+model ActivityDaily {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId     String   @db.ObjectId
+  boardId         String   @db.ObjectId
+  userId          String   @db.ObjectId
+  /// "2026-09-15" theo múi giờ `pm.timezone`.
+  date            String
+  taskEvents      Int      @default(0)
+  checklistEvents Int      @default(0)
+  commentEvents   Int      @default(0)
+  reviewEvents    Int      @default(0)
+  total           Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  @@unique([boardId, userId, date])
+  @@index([workspaceId, userId, date])
+  @@index([boardId, date])
+  @@index([workspaceId, date])
+}
+
+/// Yêu cầu xuất PDF báo cáo đóng góp — job nền `contribution.export` sinh tệp (asset scope `REPORT`, `AssetLink CONTRIBUTION_EXPORT`).
+model ContributionExport {
+  id             String                   @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId    String                   @db.ObjectId
+  boardId        String                   @db.ObjectId
+  requestedBy    String                   @db.ObjectId
+  periodKey      String
+  includeHeatmap Boolean                  @default(true)
+  status         ContributionExportStatus @default(QUEUED)
+  /// "<boardId>:<periodKey>:<dataHash>:<heatmap>" khi còn hiệu lực; "expired:<id>" / "failed:<id>" khi hết hạn/lỗi (nhả khoá để xuất lại).
+  dedupeKey      String                   @unique
+  /// sha256 dữ liệu chuẩn hoá — in ở chân trang PDF.
+  dataHash       String
+  /// base32 10 ký tự — in ở chân trang PDF, đối chiếu với bản ghi này.
+  verifyCode     String                   @unique
+  /// Trọng số áp lúc xuất.
+  weights        Json
+  memberCount    Int
+  assetId        String?                  @db.ObjectId
+  error          String?
+  createdAt      DateTime                 @default(now())
+  readyAt        DateTime?
+  expiresAt      DateTime
+
+  @@index([boardId, createdAt])
+  @@index([status, expiresAt])
+  @@index([workspaceId, createdAt])
+}
+
+// ── pomodoro (p5-02) ── Phòng Pomodoro: lớp trạng thái ĐỒNG HỒ trên `Call ROOM` của kênh POMODORO (p2-03). Mongo là nguồn sự thật đồng hồ
+// (`phaseEndsAt`, `version` CAS); mọi snapshot realtime kèm `serverNow`. `activeKey` KHÔNG null: `<channelId>` khi chưa ENDED, `ended:<id>` khi
+// ENDED ⇒ unique chống hai phiên song song trong một kênh (Mongo coi `null` là một giá trị trong unique index — không dùng null).
+// Presence CHỈ là nhật ký cá nhân (không dùng để chấm điểm/đóng góp). `db push` do điều phối viên chạy.
+enum PomodoroPhase {
+  WAITING
+  FOCUS
+  SHORT_BREAK
+  LONG_BREAK
+  PAUSED
+  ENDED
+}
+
+enum PomodoroPauseReason {
+  HOST
+  RECOVERY
+  EMPTY_ROOM
+}
+
+model PomodoroSession {
+  id                   String               @id @default(auto()) @map("_id") @db.ObjectId
+  channelId            String               @db.ObjectId
+  workspaceId          String               @db.ObjectId
+  /// `Call` (scopeType CHANNEL, mode ROOM) hiện tại của phiên; null tới khi có người vào phòng, đổi khi phòng cũ đóng mà phiên còn sống.
+  callId               String?              @db.ObjectId
+  hostUserId           String               @db.ObjectId
+  /// Snapshot cấu hình { focusMinutes, shortBreakMinutes, longBreakMinutes, cyclesBeforeLongBreak, autoAdvance, hostCanSpeakInFocus }.
+  config               Json
+  phase                PomodoroPhase        @default(WAITING)
+  previousPhase        PomodoroPhase?
+  phaseStartedAt       DateTime?
+  phaseEndsAt          DateTime?
+  /// Chỉ có nghĩa khi `phase = PAUSED` (thời gian còn lại của phase bị tạm dừng).
+  remainingMs          Int?
+  completedFocusCycles Int                  @default(0)
+  skippedFocusCycles   Int                  @default(0)
+  pauseReason          PomodoroPauseReason?
+  /// `<channelId>` khi phase != ENDED; `ended:<id>` khi ENDED.
+  activeKey            String               @unique
+  version              Int                  @default(1)
+  startedAt            DateTime?
+  endedAt              DateTime?
+  /// HOST_ENDED | MANAGER_ENDED | EMPTY_ROOM | CHANNEL_ARCHIVED.
+  endReason            String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@index([channelId, createdAt])
+  @@index([phase, phaseEndsAt])
+  @@index([callId])
+}
+
+model PomodoroPresence {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId      String    @db.ObjectId
+  userId         String    @db.ObjectId
+  joinedAt       DateTime
+  leftAt         DateTime?
+  presentSeconds Int       @default(0)
+  /// Số vòng tập trung có mặt từ đầu tới cuối (chỉ tính khi FOCUS kết thúc tự nhiên).
+  cyclesAttended Int       @default(0)
+  /// Số lần quay lại phòng sau khi đã rời (gián đoạn).
+  interruptions  Int       @default(0)
+  goal           String?
+  goalShared     Boolean   @default(false)
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([sessionId, userId])
+  @@index([userId, joinedAt])
+}
+
+// ── meeting-recap-recording (p2-06) ── Biên bản họp (MỘT bản/cuộc họp: người viết, nháp → công bố) và bản ghi hình room-composite
+// (egress → S3 → import thành Asset). Module `meetings`; KHÔNG có bảng riêng cho tệp: đính kèm biên bản = `AssetLink MEETING_RECAP`
+// (targetId = recap.id, asset scope MEETING), tệp ghi hình = `AssetLink MEETING_RECORDING` (asset scope RECORDING, storageKey = khoá egress).
+// `MeetingRecording.egressId` cố ý KHÔNG unique: Mongo coi `null` là một giá trị trong unique index nên hai bản ghi STARTING cùng lúc
+// (chưa có egressId) sẽ đụng nhau — webhook tra theo `egressId` + điều kiện trạng thái nên vẫn idempotent.
+model MeetingRecap {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  meetingId         String    @unique @db.ObjectId
+  workspaceId       String    @db.ObjectId
+  /// Markdown-lite — bản NHÁP đang sửa.
+  content           String    @default("")
+  /// Bản đã CÔNG BỐ: người xem (không phải người sửa) chỉ thấy bản này; sửa tiếp không lộ ra tới khi công bố lại.
+  publishedContent  String?
+  /// Tệp đính kèm tại thời điểm công bố (người xem chỉ mở được các tệp này).
+  publishedAssetIds String[]  @db.ObjectId
+  startedAt         DateTime?
+  endedAt           DateTime?
+  authorId          String    @db.ObjectId
+  lastEditedBy      String    @db.ObjectId
+  publishedAt       DateTime?
+  publishedBy       String?   @db.ObjectId
+  publishedVersion  Int?
+  /// Tin hệ thống `MEETING_RECAP` trong nhóm chat họp (một tin/cuộc họp; công bố lại sửa `systemPayload`).
+  systemMessageId   String?   @db.ObjectId
+  attachmentCount   Int       @default(0)
+  version           Int       @default(1)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([workspaceId, publishedAt])
+}
+
+type RecordingConsentEntry {
+  userId   String   @db.ObjectId
+  at       DateTime
+  /// true = đồng ý SAU khi bản ghi đã bắt đầu (người vào sau).
+  lateJoin Boolean
+}
+
+model MeetingRecording {
+  id                 String                  @id @default(auto()) @map("_id") @db.ObjectId
+  meetingId          String                  @db.ObjectId
+  workspaceId        String                  @db.ObjectId
+  callId             String                  @db.ObjectId
+  /// Yêu cầu đồng ý (Redis) đã dùng để bắt đầu.
+  requestId          String
+  egressId           String?
+  layout             RecordingLayout         @default(GRID)
+  status             RecordingStatus         @default(STARTING)
+  /// `<EGRESS_S3_PREFIX><workspaceId>/<meetingId>/<id>.mp4` — khoá đối tượng trong bucket egress.
+  storageKey         String
+  assetId            String?                 @db.ObjectId
+  fileSizeBytes      Int?
+  startedBy          String                  @db.ObjectId
+  /// Người đã đồng ý (mọi người CONNECTED lúc bắt đầu + người vào sau đồng ý) — không hiển thị tên cho người khác.
+  consentSnapshot    RecordingConsentEntry[]
+  startedAt          DateTime                @default(now())
+  stoppedAt          DateTime?
+  stoppedBy          String?                 @db.ObjectId
+  stopReason         RecordingStopReason?
+  durationSec        Int?
+  /// Lý do lỗi đã làm sạch (không URL ký/khoá S3).
+  error              String?
+  importAttempts     Int                     @default(0)
+  retentionExpiresAt DateTime?
+  deletedAt          DateTime?
+  deletedBy          String?                 @db.ObjectId
+  deleteReason       String?
+  version            Int                     @default(1)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@index([meetingId, startedAt])
+  @@index([callId, status])
+  @@index([egressId])
+  @@index([status, retentionExpiresAt])
+  @@index([workspaceId, createdAt])
+}
+
+enum RecordingStatus {
+  STARTING
+  RECORDING
+  STOPPING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum RecordingLayout {
+  GRID
+  SPEAKER
+}
+
+enum RecordingStopReason {
+  HOST_STOPPED
+  MEETING_ENDED
+  MAX_DURATION
+  EGRESS_FAILED
+  RETENTION
+}
+
+// ── p6-06 career/skill ── Huy hiệu kỹ năng xác thực (module `career`) + hồ sơ nghề nghiệp `UserCareer` dùng chung p6-07/p6-08.
+// Tiến độ TĂNG DẦN từ sự kiện `task.completed|reopened` (sink `task.events` của `projects`); KHÔNG có API cấp huy hiệu (CR-03).
+// Số điểm story points / điểm review lưu ×10 số nguyên (`…X10`). Field lọc bằng `null` (`revokedAt`) luôn ghi null TƯỜNG MINH khi tạo.
+enum SkillCategory {
+  FRONTEND
+  BACKEND
+  MOBILE
+  DATA
+  DESIGN
+  DEVOPS
+  QA
+  SOFT
+}
+
+enum SkillCreditStatus {
+  ACTIVE
+  REVOKED
+}
+
+/// Tiêu chí ×10; `null` = không áp dụng. `requireReview` ⇒ số task đã qua chấm ≥ `requiredTasksDone`.
+type SkillCriteria {
+  requiredTasksDone  Int
+  minStoryPointsX10  Int?
+  minAvgPeerScoreX10 Int?
+  requireReview      Boolean
+}
+
+/// Ảnh chụp minh chứng lúc cấp: top task (credit id) + số liệu tổng.
+type SkillProof {
+  taskCreditIds   String[] @db.ObjectId
+  tasksDone       Int
+  storyPointsX10  Int
+  avgPeerScoreX10 Int?
+}
+
+model SkillDefinition {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  code           String        @unique
+  name           String
+  normalizedName String
+  description    String?
+  category       SkillCategory
+  /// Nhãn khớp ĐÃ `normalizeSkillLabel` ("Node.js" → `nodejs`).
+  labelMatch     String[]
+  criteria       SkillCriteria
+  /// Tên icon trong bộ icon app/admin (thiếu → icon mặc định `badge`).
+  icon           String
+  isActive       Boolean       @default(false)
+  order          Int           @default(0)
+  version        Int           @default(1)
+  createdBy      String?       @db.ObjectId
+  updatedBy      String?       @db.ObjectId
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([isActive, order])
+  @@index([labelMatch])
+}
+
+model UserSkillProgress {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String    @db.ObjectId
+  skillId           String    @db.ObjectId
+  tasksDone         Int       @default(0)
+  storyPointsX10    Int       @default(0)
+  /// Tổng/số điểm review ×10 của các credit ACTIVE CÓ điểm chấm (`reviewScoreCount` = số task đã qua chấm).
+  reviewScoreSumX10 Int       @default(0)
+  reviewScoreCount  Int       @default(0)
+  lastTaskAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([userId, skillId])
+  @@index([skillId, tasksDone])
+  @@index([userId])
+}
+
+/// Một task đã được tính cho (người, kỹ năng) — khoá idempotent (CR-02) + nguồn minh chứng. `completionCount` = lần hoàn thành đã ghi.
+model UserSkillTaskCredit {
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String            @db.ObjectId
+  skillId         String            @db.ObjectId
+  taskId          String            @db.ObjectId
+  workspaceId     String            @db.ObjectId
+  storyPointsX10  Int
+  reviewScoreX10  Int?
+  completedAt     DateTime
+  completionCount Int
+  status          SkillCreditStatus @default(ACTIVE)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@unique([userId, skillId, taskId])
+  @@index([taskId])
+  @@index([userId, skillId, status, storyPointsX10])
+  @@index([skillId, status])
+}
+
+model UserSkillBadge {
+  id               String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String        @db.ObjectId
+  skillId          String        @db.ObjectId
+  unlockedAt       DateTime      @default(now())
+  proof            SkillProof
+  criteriaSnapshot SkillCriteria
+  /// Thu hồi thủ công (`skill:update` + lý do + audit) — không tự cấp lại khi đủ tiêu chí (CR-25), chỉ "Khôi phục".
+  revokedAt        DateTime?
+  revokedBy        String?       @db.ObjectId
+  revokedReason    String?
+
+  @@unique([userId, skillId])
+  @@index([skillId, revokedAt])
+  @@index([userId, revokedAt])
+}
+
+type CareerVisibility {
+  showSkills               Boolean @default(true)
+  proofTitles              Boolean @default(false)
+  showContribution         Boolean @default(false)
+  showQuiz                 Boolean @default(false)
+  /// p6-07 (đồng bộ chéo #11) — đồng ý hiện tên trong portfolio của đồng đội.
+  appearInOthersPortfolios Boolean @default(false)
+}
+
+/// Hồ sơ nghề nghiệp 1-1 với `User` (kế hoạch ghi `User.career`; tách model riêng để không sửa `User` của p0-01). p6-07/p6-08 mở rộng tại đây.
+model UserCareer {
+  id                  String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String           @unique @db.ObjectId
+  openToWork          Boolean          @default(false)
+  openToWorkChangedAt DateTime?
+  headline            String?
+  preferredRoles      String[]
+  location            String?
+  /// p6-08 (đồng bộ chéo #11) — phiên bản chính sách dữ liệu đã đồng ý khi bật Open to work.
+  consentVersion      String?
+  visibility          CareerVisibility
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@index([openToWork])
+}
+
+// ── p6-03 mentor ── Mentor Connect: bảng tin tìm cố vấn (người đã đăng nhập), đơn ứng tuyển, đợt cố vấn = khách có hạn (p3-04).
+// Đợt cố vấn cấp `WorkspaceMembership GUEST` (+ `displayTag = "MENTOR"`) + grant kênh chỉ định qua `WorkspaceMembershipPort`,
+// nhóm chat tuỳ chọn qua `ConversationPort` (module `mentor` không import `members`/`conversations`).
+enum MentorPostStatus {
+  OPEN
+  FULFILLED
+  CLOSED
+}
+
+enum MentorApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  EXPIRED
+}
+
+enum MentorEngagementStatus {
+  ACTIVE
+  ENDED
+}
+
+enum MentorEndReason {
+  EXPIRED
+  ENDED_BY_OWNER
+  LEFT_BY_MENTOR
+  MEMBERSHIP_REVOKED
+  WORKSPACE_ARCHIVED
+  /// Quản trị nền tảng kết thúc (`POST /admin/mentor/engagements/:id/end`).
+  ENDED_BY_PLATFORM
+}
+
+model MentorPost {
+  id                     String           @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId            String           @db.ObjectId
+  createdBy              String           @db.ObjectId
+  title                  String
+  normalizedTitle        String
+  description            String
+  /// Kỹ năng đã chuẩn hoá (`normalizeSearch`) để lọc; `skillLabels` giữ nhãn gốc để hiển thị (cùng thứ tự).
+  skills                 String[]
+  skillLabels            String[]
+  commitmentHoursPerWeek Int
+  mentorsNeeded          Int              @default(1)
+  activeEngagements      Int              @default(0)
+  status                 MentorPostStatus @default(OPEN)
+  applicantsCount        Int              @default(0)
+  expiresAt              DateTime
+  /// Số báo cáo ĐANG MỞ (đặt tuyệt đối bởi consumer `report.events`).
+  reportedCount          Int              @default(0)
+  /// Kiểm duyệt ẩn (admin) — ghi `null` TƯỜNG MINH lúc tạo (lọc `{ hiddenAt: null }`).
+  hiddenAt               DateTime?
+  hiddenBy               String?          @db.ObjectId
+  hiddenReason           String?
+  version                Int              @default(1)
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  closedAt               DateTime?
+
+  @@index([status, createdAt])
+  @@index([workspaceId, status])
+  @@index([skills, status])
+  @@index([status, expiresAt])
+}
+
+model MentorApplication {
+  id           String                  @id @default(auto()) @map("_id") @db.ObjectId
+  postId       String                  @db.ObjectId
+  workspaceId  String                  @db.ObjectId
+  applicantId  String                  @db.ObjectId
+  message      String
+  portfolioUrl String?
+  status       MentorApplicationStatus @default(PENDING)
+  reviewedBy   String?                 @db.ObjectId
+  reviewedAt   DateTime?
+  rejectReason String?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@unique([postId, applicantId])
+  @@index([applicantId, status])
+  @@index([postId, status, createdAt])
+}
+
+model MentorEngagement {
+  id                   String                 @id @default(auto()) @map("_id") @db.ObjectId
+  postId               String                 @db.ObjectId
+  applicationId        String                 @unique @db.ObjectId
+  workspaceId          String                 @db.ObjectId
+  mentorId             String                 @db.ObjectId
+  /// Người chấp nhận (OWNER nhóm chat cố vấn).
+  acceptedBy           String                 @db.ObjectId
+  channelIds           String[]               @db.ObjectId
+  /// Nhóm chat cố vấn — `null` tới khi job `mentor.accepted-effects` tạo xong (hoặc không tạo).
+  conversationId       String?                @db.ObjectId
+  startedAt            DateTime               @default(now())
+  endsAt               DateTime
+  totalDays            Int
+  status               MentorEngagementStatus @default(ACTIVE)
+  endedAt              DateTime?
+  endedReason          MentorEndReason?
+  endedBy              String?                @db.ObjectId
+  endingSoonNotifiedAt DateTime?
+  version              Int                    @default(1)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  @@index([workspaceId, status])
+  @@index([mentorId, status])
+  @@index([status, endsAt])
+  @@index([postId, status])
+}
+
+// ── p6-05 o2o ── In ấn O2O & địa điểm (module `o2o`). `Location.geo` là GeoJSON Point [lng, lat] — index `2dsphere` KHÔNG khai được
+// bằng Prisma: tạo bằng `npm run db:ensure-indexes` (scripts/ensure-indexes.ts, idempotent) NGAY SAU `db push`. Chủ tiệm (`PrintShop`
+// APPROVED) nhận quyền theo dữ liệu `partner:*` (provider `print-shop`). Đơn in snapshot tệp (`fileAssetId`) lúc tạo + báo giá (`quote`)
+// lúc gửi; PIN chỉ lưu HMAC. Field lọc bằng `null` (`hiddenAt`, `fileAccessUntil`, `expiringNotifiedAt`…) luôn ghi null TƯỜNG MINH khi tạo.
+enum LocationType {
+  CAFE
+  PRINT_SHOP
+  LIBRARY
+}
+
+enum LocationStatus {
+  ACTIVE
+  HIDDEN
+}
+
+type GeoPoint {
+  type        String
+  /// [lng, lat] — thứ tự GeoJSON.
+  coordinates Float[]
+}
+
+type OpenHour {
+  /// 0 = Chủ nhật … 6 = Thứ bảy.
+  day   Int
+  /// "07:00" (giờ địa phương `LIMITS.o2o.timezone`).
+  open  String
+  close String
+}
+
+model Location {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  normalizedName String
+  address        String
+  geo            GeoPoint
+  type           LocationType
+  /// Mã tiện ích (`LIMITS.o2o.amenities`).
+  amenities      String[]
+  openHours      OpenHour[]
+  photoAssetIds  String[]       @db.ObjectId
+  ratingAvg      Float          @default(0)
+  ratingCount    Int            @default(0)
+  noiseAvg       Float          @default(0)
+  status         LocationStatus @default(ACTIVE)
+  hiddenReason   String?
+  createdBy      String         @db.ObjectId
+  version        Int            @default(1)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([type, status])
+  @@index([status, normalizedName])
+}
+
+model LocationReview {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  locationId String    @db.ObjectId
+  userId     String    @db.ObjectId
+  rating     Int
+  noise      Int
+  comment    String?
+  hiddenAt   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([locationId, userId])
+  @@index([locationId, createdAt])
+}
+
+enum PrintShopStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+/// Đồng/trang (số nguyên).
+type PrintPriceTable {
+  a4Bw              Int
+  a4Color           Int
+  a3Bw              Int
+  a3Color           Int
+  duplexDiscountPct Int
+  minOrder          Int
+}
+
+type PrintCapabilities {
+  color   Boolean
+  duplex  Boolean
+  a3      Boolean
+  binding Boolean
+}
+
+model PrintShop {
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  locationId      String            @unique @db.ObjectId
+  ownerUserId     String            @db.ObjectId
+  displayName     String
+  phone           String?
+  priceTable      PrintPriceTable
+  capabilities    PrintCapabilities
+  status          PrintShopStatus   @default(PENDING)
+  approvedBy      String?           @db.ObjectId
+  approvedAt      DateTime?
+  suspendedReason String?
+  acceptingOrders Boolean           @default(true)
+  /// Tăng mỗi lần đổi bảng giá/năng lực — `PrintQuote.priceTableVersion` ghi lại bản đã dùng.
+  version         Int               @default(1)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([ownerUserId, status])
+  @@index([status, createdAt])
+}
+
+enum PrintOrderStatus {
+  DRAFT
+  QUOTED
+  PENDING
+  ACCEPTED
+  PRINTING
+  READY
+  PICKED_UP
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+type PrintSource {
+  /// RESOURCE | UPLOAD
+  kind       String
+  resourceId String? @db.ObjectId
+  assetId    String  @db.ObjectId
+}
+
+type PrintSettings {
+  /// A4 | A3
+  paper     String
+  color     Boolean
+  copies    Int
+  duplex    Boolean
+  pageRange String?
+  binding   Boolean
+}
+
+type PrintQuote {
+  printablePages    Int
+  sheets            Int
+  unitPrice         Int
+  subtotal          Int
+  duplexDiscount    Int
+  total             Int
+  priceTableVersion Int
+  quotedAt          DateTime
+}
+
+type PrintPayment {
+  /// AT_COUNTER (P0) | VIETQR (P1)
+  method      String
+  /// UNPAID | PAID
+  status      String
+  confirmedBy String?   @db.ObjectId
+  confirmedAt DateTime?
+}
+
+type PrintOrderEvent {
+  status String
+  at     DateTime
+  by     String?  @db.ObjectId
+  note   String?
+}
+
+model PrintOrder {
+  id                 String            @id @default(auto()) @map("_id") @db.ObjectId
+  /// "PO-7K2M9Q"
+  code               String            @unique
+  userId             String            @db.ObjectId
+  shopId             String            @db.ObjectId
+  /// Phi chuẩn hoá cho truy vấn partner.
+  shopOwnerId        String            @db.ObjectId
+  workspaceId        String?           @db.ObjectId
+  source             PrintSource
+  fileAssetId        String            @db.ObjectId
+  fileName           String
+  pages              Int?
+  /// Mã lỗi đếm trang (O2O_003 tệp hỏng/không phải PDF, O2O_011 vượt số trang) — null khi đếm được.
+  pageCountError     String?
+  settings           PrintSettings
+  quote              PrintQuote?
+  pinHash            String?
+  status             PrintOrderStatus  @default(DRAFT)
+  payment            PrintPayment
+  events             PrintOrderEvent[]
+  rejectReason       String?
+  cancelReason       String?
+  pickupBy           DateTime?
+  submittedAt        DateTime?
+  readyAt            DateTime?
+  pickedUpAt         DateTime?
+  /// Hết hạn quyền tải tệp của tiệm sau khi đơn kết thúc (+24 h); null = theo trạng thái.
+  fileAccessUntil    DateTime?
+  expiringNotifiedAt DateTime?
+  version            Int               @default(1)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([shopId, status, submittedAt])
+  @@index([shopOwnerId, status])
+  @@index([userId, createdAt])
+  @@index([status, readyAt])
+  @@index([status, submittedAt])
+  @@index([status, createdAt])
+}
+
+// ── p7-04 chat-extensions ── Mở rộng chat (module `chat-extensions`): khảo sát, tin hẹn giờ, nhắc lại tin. Module KHÔNG ghi thẳng collection `Message`: tạo tin qua cổng
+// `IMessageSendPort` (kind POLL/USER), tạo thẻ/tài liệu qua `ITaskCreationPort`/`IResourceCreationPort`. Đếm phiếu phi chuẩn hoá trong `Poll.options[].voteCount` + `voterCount`
+// (CAS `version`, cập nhật cùng transaction với `PollVote`); `PollVote.userId` lưu cả khi ẩn danh để chống bầu trùng nhưng KHÔNG bao giờ trả ra API.
+enum PollStatus {
+  OPEN
+  CLOSED
+}
+
+enum PollCloseReason {
+  EXPIRED
+  BY_CREATOR
+  BY_MODERATOR
+  MESSAGE_RECALLED
+}
+
+type PollOption {
+  /// 8 ký tự ngẫu nhiên, ổn định (khoá lựa chọn trong `PollVote.optionIds`).
+  id        String
+  text      String
+  voteCount Int     @default(0)
+  /// P1: người tham gia thêm lựa chọn.
+  addedBy   String? @db.ObjectId
+}
+
+model Poll {
+  id                 String           @id @default(auto()) @map("_id") @db.ObjectId
+  /// Tin `kind = POLL` mang khảo sát này (1-1).
+  messageId          String           @unique @db.ObjectId
+  scopeType          MessageScopeType
+  scopeId            String           @db.ObjectId
+  threadId           String?          @db.ObjectId
+  workspaceId        String?          @db.ObjectId
+  createdBy          String           @db.ObjectId
+  question           String
+  normalizedQuestion String
+  options            PollOption[]
+  /// Cho chọn nhiều đáp án.
+  multi              Boolean          @default(false)
+  /// Ẩn danh: API không trả danh sách người bầu cho ai (kể cả người tạo).
+  anonymous          Boolean          @default(false)
+  /// P1.
+  allowAddOptions    Boolean          @default(false)
+  closesAt           DateTime?
+  status             PollStatus       @default(OPEN)
+  closedAt           DateTime?
+  closedBy           String?          @db.ObjectId
+  closeReason        PollCloseReason?
+  voterCount         Int              @default(0)
+  version            Int              @default(1)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([scopeType, scopeId, createdAt])
+  @@index([status, closesAt])
+  @@index([createdBy, createdAt])
+}
+
+model PollVote {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  pollId    String   @db.ObjectId
+  /// Lưu cả khi khảo sát ẩn danh — chống bầu trùng; KHÔNG trả ra API.
+  userId    String   @db.ObjectId
+  optionIds String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pollId, userId])
+  /// `GET /polls/:id/voters?optionId`.
+  @@index([pollId, optionIds, updatedAt])
+}
+
+enum ScheduledMessageStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum ScheduledFailReason {
+  NO_PERMISSION
+  SCOPE_ARCHIVED
+  BLOCKED
+  ATTACHMENT_INVALID
+  SUB_FEATURE_OFF
+  AUTHOR_INACTIVE
+  UNKNOWN
+}
+
+/// Tin chờ phát (CHƯA phải `Message` — không lộ trong lịch sử trước giờ phát). Đến hạn job `scheduled-message.send` tạo `Message` qua `IMessageSendPort` với `clientMessageId = "sched:<id>"`.
+model ScheduledMessage {
+  id                 String                 @id @default(auto()) @map("_id") @db.ObjectId
+  authorId           String                 @db.ObjectId
+  scopeType          MessageScopeType
+  scopeId            String                 @db.ObjectId
+  threadId           String?                @db.ObjectId
+  workspaceId        String?                @db.ObjectId
+  content            String?
+  mentions           MessageMention[]
+  /// Tệp giữ bằng `AssetLink(targetType SCHEDULED_MESSAGE, scope NONE)` để job dọn mồ côi không xoá trong lúc chờ phát.
+  attachmentAssetIds String[]               @db.ObjectId
+  replyToId          String?                @db.ObjectId
+  /// UTC đã chốt lúc hẹn.
+  sendAt             DateTime
+  /// IANA lúc hẹn — CHỈ để hiển thị.
+  timezone           String
+  status             ScheduledMessageStatus @default(PENDING)
+  messageId          String?                @db.ObjectId
+  failReason         ScheduledFailReason?
+  /// Mã lỗi của engine tin nhắn (MSG_005…).
+  failCode           String?
+  attempts           Int                    @default(0)
+  sentAt             DateTime?
+  cancelledAt        DateTime?
+  version            Int                    @default(1)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  @@index([authorId, status, sendAt])
+  @@index([status, sendAt])
+  @@index([status, updatedAt])
+  @@index([scopeType, scopeId, status])
+}
+
+enum MessageReminderStatus {
+  PENDING
+  FIRED
+  CANCELLED
+}
+
+model MessageReminder {
+  id             String                @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String                @db.ObjectId
+  messageId      String                @db.ObjectId
+  scopeType      MessageScopeType
+  scopeId        String                @db.ObjectId
+  workspaceId    String?               @db.ObjectId
+  remindAt       DateTime
+  timezone       String
+  status         MessageReminderStatus @default(PENDING)
+  firedAt        DateTime?
+  /// Tin đã gỡ / mất quyền đọc lúc đến hạn → thông báo chung ("Tin không còn khả dụng"), không lộ nội dung.
+  unavailable    Boolean               @default(false)
+  notificationId String?               @db.ObjectId
+  cancelledAt    DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([userId, status, remindAt])
+  @@index([status, remindAt])
+  @@index([messageId])
+}
+
+// ── p6-01 documents ── Real-time Docs (module `documents`): metadata + trạng thái Yjs. BE là NGUỒN DUY NHẤT của `yjsState` — service `collab/`
+// (Hocuspocus) chỉ tải/lưu qua `/api/internal/documents/:id/state`, không có kết nối Mongo riêng. Mongo giới hạn 16 MB/document → `LIMITS.document.stateMaxBytes` 5 MiB.
+enum DocumentVisibility {
+  WORKSPACE
+  PRIVATE
+}
+
+enum DocumentStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model Document {
+  id              String             @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId     String             @db.ObjectId
+  title           String
+  normalizedTitle String
+  visibility      DocumentVisibility @default(WORKSPACE)
+  status          DocumentStatus     @default(ACTIVE)
+  /// Yjs update đầy đủ (Y.encodeStateAsUpdate) của Y.XmlFragment `default` (Tiptap Collaboration); `null` = chưa ai gõ.
+  yjsState        Bytes?
+  /// Tăng mỗi lần ghi state (collab lưu / khôi phục snapshot) — khoá dedupe job `document.plaintext`, base version để BE hợp nhất khi collab lưu chậm.
+  yjsVersion      Int                @default(0)
+  /// Kích thước `yjsState` (byte) — admin xếp hạng "tài liệu lớn" mà không phải tải state.
+  stateBytes      Int                @default(0)
+  /// Văn bản phẳng trích từ Yjs (job `document.plaintext`, ≤ 100 KB) phục vụ tìm kiếm workspace (p5-04).
+  plainText       String             @default("")
+  normalizedText  String             @default("")
+  wordCount       Int                @default(0)
+  lastEditedBy    String?            @db.ObjectId
+  lastEditedAt    DateTime?
+  createdBy       String             @db.ObjectId
+  /// Phiên bản OPTIMISTIC của METADATA (đổi tên/visibility/lưu trữ/khôi phục snapshot) — khác `yjsVersion` (nội dung).
+  version         Int                @default(1)
+  archivedAt      DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([workspaceId, status, updatedAt])
+  @@index([workspaceId, normalizedTitle])
+  @@index([status, lastEditedAt])
+  @@index([stateBytes])
+}
+
+enum DocumentCollaboratorRole {
+  EDITOR
+  VIEWER
+}
+
+/// Người được mời vào tài liệu (bắt buộc với tài liệu PRIVATE; với WORKSPACE chỉ cần cho khách GUEST). Người tạo KHÔNG có dòng ở đây.
+model DocumentCollaborator {
+  id         String                   @id @default(auto()) @map("_id") @db.ObjectId
+  documentId String                   @db.ObjectId
+  userId     String                   @db.ObjectId
+  role       DocumentCollaboratorRole @default(EDITOR)
+  addedBy    String                   @db.ObjectId
+  createdAt  DateTime                 @default(now())
+
+  @@unique([documentId, userId])
+  @@index([userId])
+}
+
+enum DocumentSnapshotKind {
+  AUTO
+  MANUAL
+  PRE_RESTORE
+}
+
+/// Bản chụp state Yjs để xem/khôi phục: AUTO (cron mỗi giờ nếu có thay đổi, giữ 30), MANUAL (người dùng, ≤ 100), PRE_RESTORE (tự tạo trước khi khôi phục, giữ vài bản gần nhất).
+model DocumentSnapshot {
+  id         String               @id @default(auto()) @map("_id") @db.ObjectId
+  documentId String               @db.ObjectId
+  kind       DocumentSnapshotKind
+  label      String?
+  yjsState   Bytes
+  yjsVersion Int
+  sizeBytes  Int
+  createdBy  String?              @db.ObjectId
+  at         DateTime             @default(now())
+
+  @@index([documentId, at])
+  @@index([documentId, kind, at])
+}
+
+// ── p6-08 recruiter ── Recruiter board (module `recruiter`): doanh nghiệp tự đăng ký (PENDING → vận hành duyệt) → tìm sinh viên đã bật Open to work trên
+// `TalentSearchIndex` (bản chiếu đã lọc quyền riêng tư) → gửi lời mời (hạn mức tháng nguyên tử) → sinh viên Quan tâm / Từ chối / Chặn → trao đổi trong lời mời.
+// ⚠ Unique + Mongo: index unique KHÔNG bỏ qua giá trị vắng/null (chỉ một tài liệu "không có" được phép) nên mọi khoá unique dưới đây là chuỗi KHÔNG BAO GIỜ null:
+// `taxCodeKey` = "none:<companyId>" khi không có MST hoặc công ty bị REJECTED (nhả khoá cho người khác đăng ký lại), `nameKey` = "rejected:<companyId>" khi REJECTED,
+// `CompanyMember.activeKey` = "<userId>" khi ACTIVE / "removed:<memberId>" khi REMOVED, `JobOffer.activeKey` = "<companyId>:<studentId>" khi còn mở / "closed:<offerId>".
+// Khoá unique cần `npm run db:push` (Mongo in-memory của test tự `createIndexes`).
+enum CompanyTier {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum CompanyStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum CompanySize {
+  S1_10
+  S11_50
+  S51_200
+  S201_1000
+  S1000_PLUS
+}
+
+model Company {
+  id                 String        @id @default(auto()) @map("_id") @db.ObjectId
+  name               String
+  normalizedName     String
+  /// `normalizeSearch(name)` bỏ khoảng trắng — chống trùng tên; "rejected:<id>" khi REJECTED (nhả khoá, đăng ký lại/gửi duyệt lại tranh khoá lúc `resubmit`).
+  nameKey            String        @unique
+  taxCode            String?
+  /// MST chuẩn hoá (bỏ dấu gạch) — "none:<id>" khi không có MST hoặc khi REJECTED.
+  taxCodeKey         String        @unique
+  website            String
+  /// Tên miền của website — vận hành đối chiếu với email của thành viên khi duyệt.
+  emailDomain        String?
+  description        String?
+  logoAssetId        String?       @db.ObjectId
+  industry           String?
+  sizeRange          CompanySize?
+  tier               CompanyTier   @default(FREE)
+  /// Ghi đè hạn mức lời mời/tháng (null = theo gói trong `SystemConfig recruiter.offerQuotaByTier`).
+  offerQuotaOverride Int?
+  status             CompanyStatus @default(PENDING)
+  /// Lý do của lần duyệt/từ chối/tạm ngưng gần nhất — OWNER thấy khi REJECTED/SUSPENDED (không lộ người xử lý).
+  statusReason       String?
+  reviewedBy         String?       @db.ObjectId
+  reviewedAt         DateTime?
+  /// Số báo cáo đang mở (đặt tuyệt đối bởi `onReportCreated`) — vận hành thấy ở danh sách.
+  reportedCount      Int           @default(0)
+  createdBy          String        @db.ObjectId
+  version            Int           @default(1)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([status, createdAt])
+  @@index([normalizedName])
+}
+
+enum CompanyMemberRole {
+  OWNER
+  RECRUITER
+}
+
+enum CompanyMemberStatus {
+  ACTIVE
+  REMOVED
+}
+
+/// Nhân sự doanh nghiệp. Một người ≤ 1 doanh nghiệp (P0) nhờ `activeKey` unique; thêm lại người đã REMOVED = kích hoạt LẠI hàng cũ (`@@unique [companyId, userId]`).
+model CompanyMember {
+  id        String              @id @default(auto()) @map("_id") @db.ObjectId
+  companyId String              @db.ObjectId
+  userId    String              @db.ObjectId
+  role      CompanyMemberRole
+  status    CompanyMemberStatus @default(ACTIVE)
+  activeKey String              @unique
+  invitedBy String?             @db.ObjectId
+  joinedAt  DateTime            @default(now())
+  removedAt DateTime?
+
+  @@unique([companyId, userId])
+  @@index([userId, status])
+  @@index([companyId, status])
+}
+
+/// Đếm lời mời đã gửi theo tháng ("YYYY-MM" theo Asia/Ho_Chi_Minh) — `updateMany where used < quota` + `$inc` nên gửi song song không vượt hạn mức, không cần job reset tháng.
+model CompanyOfferUsage {
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  companyId String @db.ObjectId
+  period    String
+  used      Int    @default(0)
+
+  @@unique([companyId, period])
+}
+
+enum JobOfferStatus {
+  SENT
+  READ
+  INTERESTED
+  DECLINED
+  WITHDRAWN
+  EXPIRED
+}
+
+enum EmploymentType {
+  INTERNSHIP
+  FULL_TIME
+  PART_TIME
+  FREELANCE
+}
+
+enum OfferDeclineReason {
+  NOT_LOOKING
+  NOT_A_FIT
+  LOCATION
+  TIMING
+  OTHER
+}
+
+/// Lời mời việc làm. `activeKey` giữ "<companyId>:<studentId>" khi SENT|READ|INTERESTED (mỗi cặp ≤ 1 lời mời mở), "closed:<id>" khi đã đóng.
+/// `sharedEmail` = ảnh chụp email sinh viên chọn chia sẻ lúc Quan tâm (không bao giờ tự lộ). Đếm chưa đọc của thread tách theo bên (`studentUnread`/`companyUnread`).
+model JobOffer {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  companyId       String              @db.ObjectId
+  recruiterId     String              @db.ObjectId
+  studentId       String              @db.ObjectId
+  title           String
+  message         String
+  employmentType  EmploymentType
+  location        String?
+  jdAssetId       String?             @db.ObjectId
+  status          JobOfferStatus      @default(SENT)
+  activeKey       String              @unique
+  /// `Idempotency-Key` của yêu cầu gửi (hoặc "gen:<id>" khi client không gửi) — (recruiterId, clientRequestId) unique.
+  clientRequestId String
+  sharedEmail     String?
+  declineReason   OfferDeclineReason?
+  threadLocked    Boolean             @default(false)
+  studentUnread   Int                 @default(0)
+  companyUnread   Int                 @default(0)
+  reportedCount   Int                 @default(0)
+  sentAt          DateTime            @default(now())
+  readAt          DateTime?
+  respondedAt     DateTime?
+  withdrawnAt     DateTime?
+  expiresAt       DateTime
+  lastMessageAt   DateTime?
+  version         Int                 @default(1)
+
+  @@unique([recruiterId, clientRequestId])
+  @@index([studentId, status, sentAt])
+  @@index([companyId, sentAt])
+  @@index([status, expiresAt])
+}
+
+enum OfferMessageSide {
+  COMPANY
+  CANDIDATE
+}
+
+/// Tin trao đổi trong lời mời (mở sau INTERESTED). Chỉ chữ; `(authorId, clientMessageId)` unique → gửi lại cùng id trả bản cũ.
+model JobOfferMessage {
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  offerId         String           @db.ObjectId
+  authorId        String           @db.ObjectId
+  side            OfferMessageSide
+  content         String
+  clientMessageId String
+  createdAt       DateTime         @default(now())
+  deletedAt       DateTime?
+
+  @@unique([authorId, clientMessageId])
+  @@index([offerId, createdAt])
+}
+
+type TalentSkillRef {
+  skillId String @db.ObjectId
+  code    String
+  name    String
+  icon    String
+}
+
+/// Bản chiếu tìm kiếm (materialized) của ứng viên đã bật Open to work — dựng LẠI toàn bộ theo `userId` (idempotent) và ĐÃ lọc quyền riêng tư lúc dựng
+/// (`showSkills`/`showContribution`); HR tìm CHỈ trên bảng này, không truy vấn dữ liệu nghiệp vụ. Không email/SĐT/tên nhóm.
+model TalentSearchIndex {
+  id                     String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId                 String           @unique @db.ObjectId
+  openToWork             Boolean
+  displayName            String
+  /// `normalizeSearch([displayName, headline, preferredRoles, location].join(" "))` — khớp tiền tố từ.
+  normalizedText         String
+  avatarAssetId          String?          @db.ObjectId
+  headline               String?
+  preferredRoles         String[]
+  /// Vị trí mong muốn chuẩn hoá (`normalizeSearch`) — lọc `role`.
+  preferredRolesKey      String[]
+  location               String?
+  locationKey            String?
+  skillCodes             String[]
+  skills                 TalentSkillRef[]
+  badgeCount             Int              @default(0)
+  /// Điểm đóng góp ×10 (null khi `showContribution=false` hoặc chưa nhóm nào đủ dữ liệu).
+  contributionPctX10     Int?
+  contributionWorkspaces Int?
+  portfolioUrl           String?
+  /// Doanh nghiệp bị người này chặn — `$ne companyId` khi tìm, được đồng bộ ngay lúc chặn.
+  blockedCompanyIds      String[]         @db.ObjectId
+  sourceUpdatedAt        DateTime
+  rebuiltAt              DateTime         @default(now())
+
+  @@index([openToWork, skillCodes])
+  @@index([openToWork, contributionPctX10])
+  @@index([openToWork, rebuiltAt])
+}
+
+/// Lượt xem hồ sơ ứng viên gộp theo (doanh nghiệp, sinh viên, ngày theo Asia/Ho_Chi_Minh) — sinh viên thấy "doanh nghiệp đã xem hồ sơ" (P1); mỗi lượt xem còn ghi `AuditLog talent.profile-view`.
+model TalentProfileView {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  companyId    String   @db.ObjectId
+  studentId    String   @db.ObjectId
+  dayKey       String
+  viewCount    Int      @default(0)
+  recruiterIds String[] @db.ObjectId
+  lastViewedAt DateTime
+
+  @@unique([companyId, studentId, dayKey])
+  @@index([studentId, lastViewedAt])
+}
+
+/// Sinh viên chặn doanh nghiệp: không thấy trong tìm kiếm, không gửi được lời mời, thread cũ chỉ đọc.
+model CompanyBlock {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  companyId String   @db.ObjectId
+  createdAt DateTime @default(now())
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+}
+
+// ── p6-07 portfolio ── Portfolio một chạm (module `portfolio`): hồ sơ công khai dựng từ dữ liệu hệ thống → BE render HTML tĩnh (Eta) → storage
+// (`PORTFOLIO_STORAGE_PREFIX/<portfolioId>/b<buildVersion>/`) → `GET /p/:slug` (ngoài `/api`). Số liệu là SNAPSHOT bất biến (`PortfolioProject.snapshot`,
+// điểm/phần trăm lưu ×10 số nguyên `…X10`) chụp lúc thêm/làm mới và chụp lại lúc Publish. Object build KHÔNG phải `Asset` (sản phẩm dẫn xuất công khai).
+// Field lọc bằng `null` (`takenDownAt`, `currentBuildVersion`, `finishedAt`…) luôn ghi null TƯỜNG MINH khi tạo (Prisma-Mongo không khớp field vắng mặt).
+// Unique cần `db push`: `Portfolio.userId`, `Portfolio.slugKey`, `PortfolioProject[portfolioId, workspaceId]`, `PortfolioBuild[portfolioId, buildVersion]`,
+// `PortfolioSlugReservation.slugKey`.
+enum PortfolioTemplate {
+  CLASSIC
+  DEVELOPER
+  DESIGNER
+  MINIMAL
+}
+
+enum PortfolioAccent {
+  GREEN
+  BLUE
+  VIOLET
+  ORANGE
+  ROSE
+  SLATE
+}
+
+enum PortfolioSectionKind {
+  ABOUT
+  PROJECTS
+  SKILLS
+  CONTACT
+}
+
+enum PortfolioStatus {
+  DRAFT
+  PUBLISHED
+  UNPUBLISHED
+}
+
+/// Liên kết ngoài hiển thị trên trang (chỉ `https://`).
+type PortfolioLink {
+  label String
+  url   String
+}
+
+type PortfolioTheme {
+  template PortfolioTemplate
+  accent   PortfolioAccent
+}
+
+type PortfolioSection {
+  kind    PortfolioSectionKind
+  visible Boolean
+  order   Int
+}
+
+model Portfolio {
+  id                  String             @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String             @unique @db.ObjectId
+  /// Slug hiển thị (hiện luôn chữ thường — `slugKey` là khoá tra cứu/unique).
+  slug                String
+  slugKey             String             @unique
+  displayName         String
+  headline            String?
+  bio                 String?
+  /// null → dùng ảnh đại diện tài khoản lúc build; có giá trị → asset scope AVATAR do chính chủ tải lên (`AssetLink PORTFOLIO`, targetId = portfolioId).
+  avatarAssetId       String?            @db.ObjectId
+  links               PortfolioLink[]
+  theme               PortfolioTheme
+  sections            PortfolioSection[]
+  /// Cho phép công cụ tìm kiếm lập chỉ mục (mặc định false → `noindex`).
+  seoIndexable        Boolean            @default(false)
+  status              PortfolioStatus    @default(DRAFT)
+  /// Build đang được phục vụ (chỉ tăng — build cũ về muộn không ghi đè).
+  currentBuildVersion Int?
+  /// Số phiên bản build kế tiếp (`$inc` nguyên tử khi Publish/build lại).
+  nextBuildVersion    Int                @default(1)
+  publishedAt         DateTime?
+  unpublishedAt       DateTime?
+  takenDownAt         DateTime?
+  takenDownBy         String?            @db.ObjectId
+  takedownReason      String?
+  /// CAS của sửa hồ sơ/slug/Publish (`expectedVersion`). Sửa dự án KHÔNG tăng (dự án có `version` riêng).
+  version             Int                @default(1)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([status])
+}
+
+/// Huy hiệu tham chiếu (P1 — ở P0 mục SKILLS lấy thẳng huy hiệu còn hiệu lực lúc build, nên mảng này để trống).
+type PortfolioSkillRef {
+  skillId    String   @db.ObjectId
+  code       String
+  name       String
+  icon       String
+  unlockedAt DateTime
+}
+
+/// Số liệu hệ thống ghi nhận chụp lúc thêm/làm mới/Publish. `…X10` = giá trị × 10 làm tròn; `null` = chưa có dữ liệu/không được phép công khai.
+type PortfolioSnapshot {
+  tasksDone          Int
+  storyPointsX10     Int
+  onTimeRatePct      Int?
+  /// Điểm đóng góp (thang 0–100, công thức D-09) — CHỈ lưu khi chủ hồ sơ bật `career.visibility.showContribution` lúc chụp.
+  contributionPctX10 Int?
+  /// % chiếm khối lượng của cả nhóm — cùng điều kiện với `contributionPctX10`.
+  contributionShareX10 Int?
+  peerReviewAvgX10   Int?
+  filesUploaded      Int
+  teammatesCount     Int
+  /// Tên (hiện tại) CHỈ của đồng đội đã bật `appearInOthersPortfolios`; rỗng khi `showTeammates = false`. Tối đa 10.
+  namedTeammates     String[]
+  skillBadges        PortfolioSkillRef[]
+}
+
+model PortfolioProject {
+  id            String            @id @default(auto()) @map("_id") @db.ObjectId
+  portfolioId   String            @db.ObjectId
+  userId        String            @db.ObjectId
+  workspaceId   String            @db.ObjectId
+  /// Mặc định = tên nhóm nhưng người dùng sửa được; KHÔNG bao giờ lấy tiêu đề task/tên kênh/nội dung tài liệu.
+  title         String
+  summary       String?
+  role          String?
+  periodFrom    DateTime?
+  periodTo      DateTime?
+  highlights    String[]
+  /// Ảnh bìa (asset scope AVATAR của chính chủ, `AssetLink PORTFOLIO`, targetId = id dự án).
+  coverAssetId  String?           @db.ObjectId
+  visible       Boolean           @default(true)
+  order         Int               @default(0)
+  showTeammates Boolean           @default(false)
+  snapshot      PortfolioSnapshot
+  snapshotAt    DateTime
+  /// CAS của sửa nội dung do người dùng viết (`expectedVersion`); chụp lại snapshot KHÔNG tăng.
+  version       Int               @default(1)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([portfolioId, workspaceId])
+  @@index([portfolioId, order])
+  @@index([userId])
+  @@index([workspaceId])
+}
+
+enum PortfolioBuildStatus {
+  QUEUED
+  BUILDING
+  READY
+  FAILED
+}
+
+enum PortfolioBuildTrigger {
+  PUBLISH
+  SKILL_REVOKED
+  RESTORE
+}
+
+/// Lịch sử build (idempotent theo `[portfolioId, buildVersion]`). `storageKey` = "<prefix><portfolioId>/b<n>/"; `files` = tên object trong thư mục đó
+/// (gồm `index.html`) để job dọn xoá đúng từng object (storage không có thao tác liệt kê theo tiền tố).
+model PortfolioBuild {
+  id               String                @id @default(auto()) @map("_id") @db.ObjectId
+  portfolioId      String                @db.ObjectId
+  buildVersion     Int
+  status           PortfolioBuildStatus  @default(QUEUED)
+  trigger          PortfolioBuildTrigger
+  /// `Portfolio.version` lúc yêu cầu Publish — client so với `version` hiện tại để biết "có thay đổi chưa công khai".
+  portfolioVersion Int
+  storageKey       String?
+  files            String[]
+  sizeBytes        Int?
+  error            String?
+  createdBy        String?               @db.ObjectId
+  createdAt        DateTime              @default(now())
+  /// Lúc job nhận build (lease của `portfolio.stale-build-reaper`).
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  purgedAt         DateTime?
+
+  @@unique([portfolioId, buildVersion])
+  @@index([status, createdAt])
+}
+
+/// Slug cũ giữ 30 ngày: `redirectTo` = slugKey mới (301) hoặc null (tài khoản bị ẩn danh hoá/xoá hồ sơ → 404 nhưng không ai khác lấy được).
+model PortfolioSlugReservation {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  slugKey     String   @unique
+  portfolioId String   @db.ObjectId
+  redirectTo  String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([expiresAt])
+  @@index([portfolioId])
+}
+
+// ── p6-02 whiteboards ── Bảng trắng cộng tác (module `whiteboards`): cùng cơ chế Yjs + `collab/` với `documents` (documentName `wb:<id>`). BE là NGUỒN DUY NHẤT của `yjsState`
+// (collab chỉ tải/lưu qua `/api/internal/whiteboards/:id/state`). Cấu trúc Y.Doc: `elements` Y.Map<id, Y.Map>, `order` Y.Array<id>, `meta` Y.Map — xem `contracts/whiteboard-elements.schema.json`.
+// Mongo giới hạn 16 MB/document → `LIMITS.whiteboard.stateMaxBytes` 8 MiB (state + metadata còn dư chỗ). Cần `npm run db:push` (model + giá trị enum AssetScope/AssetLinkTarget `WHITEBOARD`).
+enum WhiteboardVisibility {
+  WORKSPACE
+  PRIVATE
+}
+
+enum WhiteboardStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model Whiteboard {
+  id               String               @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId      String               @db.ObjectId
+  name             String
+  normalizedName   String
+  visibility       WhiteboardVisibility @default(WORKSPACE)
+  status           WhiteboardStatus     @default(ACTIVE)
+  /// Yjs update đầy đủ (Y.encodeStateAsUpdate); `null` = chưa ai vẽ.
+  yjsState         Bytes?
+  /// Tăng mỗi lần ghi state (collab lưu / khôi phục snapshot) — base version để BE hợp nhất khi collab lưu chậm.
+  yjsVersion       Int                  @default(0)
+  /// Số phần tử (`elements.size`) BE đếm từ Yjs mỗi lần nhận state — danh sách hiển thị mà không phải tải state; trần `LIMITS.whiteboard.elementsMax`.
+  elementCount     Int                  @default(0)
+  /// Ảnh thu nhỏ do client chụp canvas (asset scope WHITEBOARD, `AssetLink WHITEBOARD`); danh sách ký URL thumbnail của asset này.
+  thumbnailAssetId String?              @db.ObjectId
+  lastEditedBy     String?              @db.ObjectId
+  lastEditedAt     DateTime?
+  createdBy        String               @db.ObjectId
+  /// Phiên bản OPTIMISTIC của METADATA (đổi tên/visibility/thumbnail/lưu trữ/khôi phục snapshot) — khác `yjsVersion` (nội dung).
+  version          Int                  @default(1)
+  archivedAt       DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([workspaceId, status, updatedAt])
+  @@index([status, lastEditedAt])
+}
+
+enum WhiteboardCollaboratorRole {
+  EDITOR
+  VIEWER
+}
+
+/// Người được mời vào bảng (bắt buộc với bảng PRIVATE; với WORKSPACE chỉ cần cho khách GUEST). Người tạo KHÔNG có dòng ở đây.
+model WhiteboardCollaborator {
+  id           String                     @id @default(auto()) @map("_id") @db.ObjectId
+  whiteboardId String                     @db.ObjectId
+  userId       String                     @db.ObjectId
+  role         WhiteboardCollaboratorRole @default(EDITOR)
+  addedBy      String                     @db.ObjectId
+  createdAt    DateTime                   @default(now())
+
+  @@unique([whiteboardId, userId])
+  @@index([userId])
+}
+
+enum WhiteboardSnapshotKind {
+  AUTO
+  MANUAL
+  PRE_RESTORE
+}
+
+/// Bản chụp state Yjs để xem/khôi phục: AUTO (cron mỗi giờ nếu có thay đổi), MANUAL (người dùng), PRE_RESTORE (tự tạo trước khi khôi phục).
+model WhiteboardSnapshot {
+  id           String                 @id @default(auto()) @map("_id") @db.ObjectId
+  whiteboardId String                 @db.ObjectId
+  kind         WhiteboardSnapshotKind
+  label        String?
+  yjsState     Bytes
+  elementCount Int
+  createdBy    String?                @db.ObjectId
+  at           DateTime               @default(now())
+
+  @@index([whiteboardId, at])
+  @@index([whiteboardId, kind, at])
+}
+
+// ── p7-02 coins ── Kinh tế ẢO (module `coins`): ví xu mỗi người + sổ cái bất biến + cửa hàng vật phẩm hồ sơ + nhiệm vụ ngày.
+// ⛔ Xu KHÔNG phải tiền thật: không nạp bằng tiền, không quy đổi ra tiền, không liên quan `WorkspaceExpense/Settlement` của ví chi tiêu nhóm (p6-04, module `wallet`).
+// Mọi thay đổi `CoinWallet.balance` đi qua `CoinLedgerService` — MỘT transaction gồm cập nhật CÓ ĐIỀU KIỆN (CAS, số dư không âm, không vượt trần) + một dòng
+// `CoinTransaction` (unique `(type, refType, refId, userId)` chống cộng/trừ hai lần). Chợ tài liệu (`MarketplaceListing/Purchase`, P1) CHƯA có model ở đây.
+enum CoinTxType {
+  EARN_EVENT
+  EARN_QUEST
+  SPEND_SHOP
+  /// P1 (chợ tài liệu) — đã có để `CoinLedgerService.transfer` dùng; P0 KHÔNG có endpoint nào phát dòng này.
+  SPEND_MARKETPLACE
+  EARN_SALE
+  BURN_FEE
+  REFUND
+  ADJUST_ADMIN
+}
+
+enum ShopItemKind {
+  AVATAR_FRAME
+  PROFILE_THEME
+  EMOJI_PACK
+}
+
+/// Ví xu của MỘT người (tạo lười ở lần nhận/tiêu đầu tiên). `balance` là CACHE của Σ `CoinTransaction.amount` — job đối soát so lệch rồi CẢNH BÁO, không tự sửa.
+/// KHÔNG bao giờ ghi trực tiếp: chỉ `CoinWalletRepository.applyDelta` (điều kiện `balance` trong khoảng cho phép) dưới `CoinLedgerService`.
+model CoinWallet {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @unique @db.ObjectId
+  /// ≥ 0 (điều kiện CAS) và ≤ `LIMITS.coins.balanceMax` (nhỏ hơn Int32 để cộng không tràn).
+  balance        Int      @default(0)
+  /// Tổng đã nhận (các loại EARN), tổng đã tiêu (các loại SPEND và BURN_FEE) — điều chỉnh của admin KHÔNG tính vào hai số này.
+  lifetimeEarned Int      @default(0)
+  lifetimeSpent  Int      @default(0)
+  /// Tăng MỖI lần đổi số dư (theo dõi/đối soát; không dùng làm điều kiện CAS — điều kiện là `balance`).
+  version        Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+/// Sổ cái APPEND-ONLY: không sửa, không xoá. `amount` có dấu (+ nhận, − tiêu), `balanceAfter` = số dư ngay sau dòng này (đọc trong CÙNG transaction).
+model CoinTransaction {
+  id             String     @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String     @db.ObjectId
+  amount         Int
+  type           CoinTxType
+  /// XP_EVENT | QUEST | SHOP_ITEM | ADMIN | (P1) PURCHASE | LISTING
+  refType        String
+  /// XP_EVENT: `<sourceType>:<sourceId>`; QUEST: `<questId>:<YYYY-MM-DD>`; SHOP_ITEM: itemId; ADMIN: Idempotency-Key của lần điều chỉnh.
+  refId          String
+  balanceAfter   Int
+  counterpartyId String?    @db.ObjectId
+  /// Lý do (admin điều chỉnh) — KHÔNG PII, tối đa 500 ký tự.
+  note           String?
+  /// Admin thực hiện (ADJUST_ADMIN); `null` với dòng do hệ thống/người dùng tự tạo.
+  actorId        String?    @db.ObjectId
+  at             DateTime   @default(now())
+
+  @@unique([type, refType, refId, userId])
+  @@index([userId, at])
+  @@index([type, at])
+}
+
+/// Nhật ký XỬ LÝ sự kiện `xp.awarded` (id = `XpEvent.dedupeKey` `<sourceType>:<sourceId>:<userId>`): mỏ neo idempotent CHUNG cho thưởng xu VÀ tiến độ nhiệm vụ
+/// (một sự kiện bị retry/giao lại không cộng hai lần), đồng thời là nguồn của TRẦN NGÀY (Σ `coins` theo `userId + localDate`, trong cùng transaction với dòng ledger).
+model CoinEarnEvent {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  dedupeKey  String   @unique
+  userId     String   @db.ObjectId
+  sourceType String
+  sourceId   String
+  /// "YYYY-MM-DD" theo múi giờ người dùng tại thời điểm sự kiện.
+  localDate  String
+  /// Xu ĐÃ thưởng (0 = chỉ tính tiến độ nhiệm vụ, hoặc vượt trần ngày).
+  coins      Int
+  capped     Boolean  @default(false)
+  at         DateTime @default(now())
+
+  @@index([userId, localDate])
+}
+
+/// Luật thưởng xu theo nguồn XP (`sourceType` = `XpSourceType`; ADMIN_ADJUST bị loại cứng — điều chỉnh XP của admin không đẻ ra xu). Admin chỉnh (lý do + audit + CAS `version`);
+/// có hiệu lực ≤ 60 s, KHÔNG hồi tố.
+model CoinRule {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  sourceType String   @unique
+  coins      Int
+  /// null = chỉ chịu trần chung `LIMITS.coins.dailyEarnCap`.
+  dailyCap   Int?
+  isActive   Boolean  @default(true)
+  version    Int      @default(1)
+  updatedBy  String?  @db.ObjectId
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/// Nhiệm vụ ngày (cấu hình). `metric` ∈ whitelist đếm từ `xp.awarded` (tasksDone, tasksOnTime, quizzesTaken, quizzesPassed, srReviewDays, reviewsGiven, setsPublished, pomodoroCycles).
+model CoinQuest {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  code        String   @unique
+  title       String
+  description String
+  metric      String
+  target      Int
+  coins       Int
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  version     Int      @default(1)
+  updatedBy   String?  @db.ObjectId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, metric])
+}
+
+/// Tiến độ nhiệm vụ của MỘT người trong MỘT ngày (`date` theo `User.timezone`). Tạo trước NGOÀI transaction (unique) rồi `$inc` trong transaction thưởng.
+/// `claimedAt` đặt bằng `updateMany` có điều kiện (`progress ≥ target`, `claimedAt = null`) — nhận thưởng đúng một lần.
+model UserQuestProgress {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String    @db.ObjectId
+  questId   String    @db.ObjectId
+  date      String
+  progress  Int       @default(0)
+  claimedAt DateTime?
+  updatedAt DateTime  @updatedAt
+
+  @@unique([userId, questId, date])
+  @@index([userId, date])
+}
+
+/// Vật phẩm hồ sơ bán bằng xu. `data` = token hiển thị theo `kind` (khung avatar/theme/danh sách emoji) — schema Zod theo kind ở DTO admin.
+model ShopItem {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  code          String       @unique
+  name          String
+  kind          ShopItemKind
+  price         Int
+  assetId       String?      @db.ObjectId
+  data          Json?
+  isActive      Boolean      @default(true)
+  availableFrom DateTime?
+  availableTo   DateTime?
+  version       Int          @default(1)
+  updatedBy     String?      @db.ObjectId
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([isActive, kind])
+}
+
+/// Kho đồ: một dòng mỗi (người, vật phẩm) — mua lại bị chặn bởi unique (và bởi ledger SPEND_SHOP). `equipped` tối đa MỘT dòng mỗi `(userId, kind)` (service tháo cùng loại trong transaction).
+model UserInventory {
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String       @db.ObjectId
+  itemId     String       @db.ObjectId
+  kind       ShopItemKind
+  equipped   Boolean      @default(false)
+  acquiredAt DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([userId, itemId])
+  @@index([userId, kind, equipped])
+  @@index([itemId])
+}
+
+// ── p7-02 marketplace (P1) ── Chợ tài liệu: bán StudySet công khai / Resource cá nhân cho thành viên khác lấy Coins nội bộ (KHÔNG phải tiền thật — dùng lại `CoinLedgerService.transfer`, loại `SPEND_MARKETPLACE/EARN_SALE/BURN_FEE/REFUND`).
+enum ListingContentType {
+  STUDY_SET
+  RESOURCE
+}
+
+enum ListingStatus {
+  PENDING_REVIEW
+  ACTIVE
+  HIDDEN
+  WITHDRAWN
+}
+
+/// Tin niêm yết. Một nội dung gốc chỉ niêm yết được MỘT lần đang hoạt động (`@@unique([contentType, contentId])` — xoá/rút tin rồi mới niêm yết lại). `status` khởi tạo `PENDING_REVIEW` khi người bán mới/dưới `sellerMinLevel`, ngược lại `ACTIVE` ngay.
+/// `normalizedTitle` phục vụ tìm kiếm thô (cùng quy ước `Workspace.normalizedName`). `hiddenReason` chỉ set khi admin ẩn thủ công hoặc tự động do vượt `LIMITS.marketplace.autoHideReports`.
+model MarketplaceListing {
+  id              String             @id @default(auto()) @map("_id") @db.ObjectId
+  sellerId        String             @db.ObjectId
+  contentType     ListingContentType
+  contentId       String             @db.ObjectId
+  title           String
+  normalizedTitle String
+  description     String?
+  tags            String[]
+  price           Int
+  status          ListingStatus      @default(PENDING_REVIEW)
+  /// Số lượt mua thành công — chỉ tăng, KHÔNG giảm khi hoàn tiền (hoàn tiền không "huỷ" một lượt bán đã xảy ra).
+  sales           Int                @default(0)
+  reportCount     Int                @default(0)
+  hiddenReason    String?
+  version         Int                @default(1)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([contentType, contentId])
+  @@index([status, createdAt])
+  @@index([sellerId])
+}
+
+/// Lượt mua MỘT tin — mua lại bị chặn bởi `@@unique([listingId, buyerId])`. `fee` = phần nền tảng giữ lại (`floor(price × feePercent / 100)`), người bán nhận `price − fee`.
+/// `accessRef` = id bản sao StudySet của người mua (STUDY_SET) / id bản ghi cấp quyền cho RESOURCE (service `marketplace.grant-access` của Wave 2 quyết định cơ chế — be.md gợi ý `AssetLink` targetType riêng, CHƯA khai enum ở đây), set sau khi job chạy xong (`null` = đang chờ cấp quyền).
+model MarketplacePurchase {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  listingId  String    @db.ObjectId
+  buyerId    String    @db.ObjectId
+  price      Int
+  fee        Int
+  accessRef  String?
+  refundedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@unique([listingId, buyerId])
+  @@index([buyerId, createdAt])
+}
+
+// ── p7-03 burnout radar ── Sức khoẻ học tập (module `burnout`): DỮ LIỆU SỨC KHOẺ TINH THẦN nhạy cảm — mặc định TẮT, chỉ người tự BẬT (opt-in) mới bị thu thập, chỉ chính họ thấy chi tiết. Admin
+// KHÔNG bao giờ đọc các collection này theo người (chỉ đếm gộp ẩn danh ≥ 20 người). Tắt/xoá dữ liệu/ẩn danh hoá tài khoản ⇒ xoá sạch `WellbeingDaily` + `BurnoutAssessment` của người đó. KHÔNG có nội dung tin/thẻ/tên:
+// chỉ "khe 15 phút nào có hoạt động" tổng hợp thành số phút/số sự kiện theo ngày. Chia sẻ mức với trưởng nhóm (`WellbeingShare`, P1) CHƯA có mô hình.
+enum WellbeingLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+/// Cài đặt theo dõi của MỘT người (tạo lười khi bật lần đầu — chưa có dòng = TẮT). Đang bật ⇔ `optedInAt ≠ null` và `optedOutAt = null`; tắt đặt `optedInAt = null`.
+model WellbeingSetting {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String    @unique @db.ObjectId
+  optedInAt      DateTime?
+  optedOutAt     DateTime?
+  alertsEnabled  Boolean   @default(true)
+  /// `{ workMinutes, breakMinutes }` — giờ làm/nghỉ mong muốn (dùng cho nút nghỉ ở P1).
+  preferredBreak Json?
+  /// Mốc cảnh báo gần nhất — chiếm NGUYÊN TỬ bằng `updateMany` có điều kiện (hai job chạy trùng chỉ một cảnh báo).
+  lastAlertAt    DateTime?
+  /// "Nhắc lại sau": không cảnh báo tới mốc này.
+  snoozedUntil   DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  @@index([optedInAt])
+}
+
+/// Chỉ số MỘT ngày wellbeing của người đã bật theo dõi. `date` = ngày wellbeing `YYYY-MM-DD` theo múi giờ CỦA NGƯỜI DÙNG lúc tổng hợp — ngày mới bắt đầu 05:00 (hoạt động 00:00–05:00 thuộc ngày hôm trước).
+/// Giữ `LIMITS.wellbeing.retentionDays` (90 ngày, cron dọn theo `createdAt`).
+model WellbeingDaily {
+  id                       String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId                   String   @db.ObjectId
+  date                     String
+  timezone                 String
+  activeMinutes            Int
+  longestContinuousMinutes Int
+  lateNightMinutes         Int
+  eventsCount              Int
+  lateNightEvents          Int
+  createdAt                DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([createdAt])
+}
+
+/// Điểm rủi ro theo ngày wellbeing + nhân tố `[{ ruleId, label, metric, aggregate, days, value, threshold, points }]` + phiên bản bộ luật lúc chấm (`ruleVersion`). `alerted`/`alertedAt` = đã cảnh báo cho đánh giá này;
+/// `ackAction` = `DISMISS` ("Đã hiểu") | `SNOOZE` ("Nhắc lại sau"). Giữ như `WellbeingDaily` (90 ngày).
+model BurnoutAssessment {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String         @db.ObjectId
+  date        String
+  riskScore   Int
+  level       WellbeingLevel
+  factors     Json
+  ruleVersion Int
+  alerted     Boolean        @default(false)
+  alertedAt   DateTime?
+  ackAction   String?
+  ackAt       DateTime?
+  createdAt   DateTime       @default(now())
+
+  @@unique([userId, date])
+  @@index([createdAt])
+  @@index([alertedAt])
+  @@index([date])
+}
+
+/// Chia sẻ mức (P1) — người opt-in TỰ NGUYỆN chọn 1+ nhóm để trưởng nhóm thấy `level` (LOW/MEDIUM/HIGH) mới nhất của mình qua `GET /workspaces/:id/wellbeing/indicators`.
+/// KHÔNG chia sẻ `riskScore`/`factors`/số phút — chỉ mức. Yêu cầu còn là thành viên ACTIVE của `workspaceId` (kiểm lại lúc đọc, không chỉ lúc tạo). Xoá theo opt-out purge cùng `WellbeingDaily`/`BurnoutAssessment`.
+model WellbeingShare {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  workspaceId String   @db.ObjectId
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+// ── p7-05 plagiarism ── Quét trùng lặp NỘI BỘ workspace (k-gram + winnowing tự viết) — AI tạm dừng (D-13), KHÔNG gọi mô hình/API bên ngoài, KHÔNG so với nguồn ngoài Internet.
+// Không import module `resources`: đọc tên/đuôi/`assetId`/`deletedAt` của `Resource` qua repository chỉ đọc (giống `admin-media-ops` p2-07); quyền qua `PermissionService` (resolver WORKSPACE + `resource.view`).
+// Hash winnowing là int32 CÓ DẤU (khác kế hoạch — Prisma `Int` không nhận uint32; xem `be/src/modules/plagiarism/lib/constants.ts`).
+enum FingerprintKind {
+  TEXT
+  CODE
+}
+
+enum FingerprintStatus {
+  PENDING
+  READY
+  NO_TEXT
+  UNSUPPORTED
+  TOO_LARGE
+  FAILED
+}
+
+enum PlagiarismScanMode {
+  WITHIN_SELECTION
+  WORKSPACE
+}
+
+enum PlagiarismScanStatus {
+  QUEUED
+  INDEXING
+  SCANNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum PlagiarismLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum PlagiarismResultStatus {
+  OK
+  SKIPPED
+}
+
+/// Khoảng trùng — vị trí tính theo cả token (chỉ số) và ký tự/dòng (hiển thị); `endToken`/`endChar`/`lineEnd` là chỉ số SAU token/ký tự/dòng cuối cùng (exclusive), khớp quy ước `span-range.ts`.
+type SpanRange {
+  startToken Int
+  endToken   Int
+  startChar  Int
+  endChar    Int
+  lineStart  Int
+  lineEnd    Int
+}
+
+/// Một nguồn trùng trong `PlagiarismResult.matchedSources` — `nameSnapshot` chụp tên Resource lúc quét (tên có thể đổi/xoá sau đó); `similarity` = containment(target ← source), 0..100.
+type MatchedSource {
+  resourceId   String @db.ObjectId
+  nameSnapshot String
+  similarity   Int
+}
+
+/// Chỉ mục fingerprint của MỘT Resource (unique theo `resourceId` — bản mới thay bản cũ hoàn toàn khi tệp đổi phiên bản). `hashes` = tập hash winnowing DUY NHẤT đã sắp xếp, cắt còn ≤
+/// `LIMITS.plagiarism.fingerprintsPerDocMax` (giữ hash nhỏ nhất — tất định). `derivedKey` trỏ tệp dẫn xuất nén gzip (văn bản chuẩn hoá + bản đồ vị trí + postings) trên storage, KHÔNG lưu trong Mongo.
+/// `resourceDeleted` đổi theo vòng đời Resource (thùng rác) để loại khỏi so khớp mà KHÔNG xoá fingerprint (khôi phục lại dùng được ngay).
+model DocumentFingerprint {
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId     String            @db.ObjectId
+  resourceId      String            @unique @db.ObjectId
+  /// Phiên bản Resource lúc lập chỉ mục — job CAS khớp version mới xử lý; bản mới hơn tới trong lúc job chạy → job bỏ qua (job kế tiếp xử lý bản mới).
+  resourceVersion Int
+  assetId         String            @db.ObjectId
+  kind            FingerprintKind?
+  /// Chỉ CODE: "c-like" | "python" | "sql" | "markup".
+  language        String?
+  status          FingerprintStatus @default(PENDING)
+  /// `PLAGIARISM_ALGO_VERSION` lúc lập chỉ mục — đổi hằng số này (thay thuật toán) → fingerprint cũ cần `plagiarism.reindex`.
+  algoVersion     Int
+  tokenCount      Int               @default(0)
+  hashCount       Int               @default(0)
+  hashes          Int[]
+  /// Văn bản bị cắt do vượt `LIMITS.plagiarism.charsMax`.
+  truncated       Boolean           @default(false)
+  /// `derived/plagiarism/<workspaceId>/<resourceId>/v<resourceVersion>-a<algoVersion>.json.gz`.
+  derivedKey      String?
+  errorCode       String?
+  resourceDeleted Boolean           @default(false)
+  indexedAt       DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // multikey — chỉ số đảo ngược tra "tài liệu nào chứa hash X" theo workspace + loại.
+  @@index([workspaceId, kind, hashes])
+  @@index([workspaceId, status])
+  @@index([algoVersion, status])
+}
+
+/// Một lượt quét — snapshot cấu hình lúc tạo (`configSnapshot`, không đổi theo admin sửa `SystemConfig` sau đó) để kết quả nhất quán trong suốt vòng đời lượt quét.
+/// `targetResourceIds` = đích cần chấm điểm; `excludeResourceIds`/`excludeFolderIds` = loại khỏi tập NGUỒN so khớp (không loại khỏi đích). `expiresAt` = hạn lưu báo cáo (`LIMITS.plagiarism.reportRetentionDays`).
+model PlagiarismScan {
+  id                 String               @id @default(auto()) @map("_id") @db.ObjectId
+  workspaceId        String               @db.ObjectId
+  requestedBy        String               @db.ObjectId
+  mode               PlagiarismScanMode
+  targetResourceIds  String[]             @db.ObjectId
+  excludeResourceIds String[]             @db.ObjectId
+  excludeFolderIds   String[]             @db.ObjectId
+  note               String?
+  status             PlagiarismScanStatus @default(QUEUED)
+  /// 0..100 — cập nhật throttle tối đa 1 lần/2 giây trong lúc `SCANNING`.
+  progress           Int                  @default(0)
+  algoVersion        Int
+  /// Ngưỡng/k/window/minSectionTokens/boilerplate… tại thời điểm tạo — xem `plagiarism-config.service.snapshot()`.
+  configSnapshot     Json
+  /// INDEX_TIMEOUT | ALL_TARGETS_SKIPPED | INTERNAL.
+  failureCode        String?
+  startedAt          DateTime?
+  finishedAt         DateTime?
+  cancelledAt        DateTime?
+  cancelledBy        String?              @db.ObjectId
+  expiresAt          DateTime
+  deletedAt          DateTime?
+  version            Int                  @default(1)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@index([workspaceId, deletedAt, createdAt])
+  @@index([workspaceId, status])
+  @@index([status, updatedAt])
+  @@index([expiresAt])
+}
+
+/// Kết quả MỘT tệp đích trong MỘT lượt quét (unique theo `(scanId, targetResourceId)`). `targetName` chụp tên Resource lúc quét. `matchedSources` ≤ 10, sắp giảm dần theo `similarity`.
+/// `skipReason` chỉ set khi `status = SKIPPED`: NO_TEXT | UNSUPPORTED | TOO_LARGE | FAILED | DELETED.
+model PlagiarismResult {
+  id               String                 @id @default(auto()) @map("_id") @db.ObjectId
+  scanId           String                 @db.ObjectId
+  targetResourceId String                 @db.ObjectId
+  targetName       String
+  kind             FingerprintKind?
+  status           PlagiarismResultStatus
+  skipReason       String?
+  score            Int                    @default(0)
+  level            PlagiarismLevel?
+  matchedSources   MatchedSource[]
+  sectionCount     Int                    @default(0)
+  createdAt        DateTime               @default(now())
+
+  @@unique([scanId, targetResourceId])
+}
+
+/// Một khoảng trùng cụ thể giữa đích và MỘT nguồn, đã gộp từ các cặp vị trí trùng hash liền kề (`section-merger.ts`). `order` = thứ tự hiển thị trong đích (unique theo `(scanId, targetResourceId, order)`).
+/// `similarity` = % fingerprint khớp trong khoảng (không phải điểm tổng của `PlagiarismResult.score`).
+model PlagiarismSection {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  scanId           String    @db.ObjectId
+  targetResourceId String    @db.ObjectId
+  sourceResourceId String    @db.ObjectId
+  order            Int
+  target           SpanRange
+  source           SpanRange
+  similarity       Int
+  matchedHashes    Int
+
+  @@unique([scanId, targetResourceId, order])
+  @@index([scanId, sourceResourceId])
+}

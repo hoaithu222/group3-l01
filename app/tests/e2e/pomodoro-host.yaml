@@ -1,0 +1,35 @@
+# p5-02 app.md §8 — Maestro: chủ phòng bắt đầu, tạm dừng, tiếp tục, kết thúc một phiên Pomodoro.
+#
+# ⚠️ CHƯA CHẠY (repo chưa có hạ tầng Maestro/dev-client trong CI; PM-01/02/06 cần 2 thiết bị thật — ghi `acceptance-runs/`).
+# Chạy tay: `maestro test -e APP_ID=com.mancode.vungnui -e WS_ID=<workspaceId> -e CHANNEL_ID=<kênh POMODORO> app/tests/e2e/pomodoro-host.yaml`
+# Điều kiện: máy đã đăng nhập bằng tài khoản có quyền vào kênh; BE bật cờ `voice` + `pomodoro`; kênh chưa có phiên đang chạy.
+appId: ${APP_ID}
+---
+- launchApp
+- openLink: superapp://workspaces/${WS_ID}/channels/${CHANNEL_ID}
+
+# Preview: chỉ xem, chưa vào phòng (mic/quyền chưa hỏi).
+- assertVisible: 'Chờ bắt đầu'
+- assertVisible: 'Luật phòng'
+
+# Bắt đầu = vào phòng (mic TẮT) rồi chạy vòng tập trung đầu tiên.
+- tapOn: 'Bắt đầu'
+- assertVisible: 'Tập trung'
+- assertVisible: 'Mic tắt khi tập trung'
+
+# Tạm dừng → đồng hồ đóng băng, nhãn "Tạm dừng"; Tiếp tục → chạy lại.
+- tapOn: 'Tạm dừng'
+- assertVisible: 'Tạm dừng'
+- assertVisible: 'Tiếp tục'
+- tapOn: 'Tiếp tục'
+- assertVisible: 'Tập trung'
+
+# Kết thúc nằm trong menu "⋯" của chủ phòng (thao tác phá huỷ), có xác nhận rồi hiện tấm kết quả.
+- tapOn: 'Tuỳ chọn của chủ phòng'
+- tapOn: 'Kết thúc phiên'
+- assertVisible: 'Kết thúc phiên?'
+- tapOn: 'Kết thúc phiên'
+- assertVisible: 'Kết quả phiên'
+- assertVisible: 'Nhật ký cá nhân, không dùng để chấm điểm.'
+- tapOn: 'Xong'
+- assertVisible: 'Vào học'

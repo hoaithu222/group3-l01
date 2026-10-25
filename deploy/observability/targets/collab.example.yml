@@ -1,0 +1,6 @@
+# collab (p6-01) — chép thành targets/collab.yml KHI profile `collab` chạy. GIẢ ĐỊNH: collab phát prom-client (collab_connections, collab_documents_open,
+# collab_store_duration) tại /metrics cổng 4000 — đối chiếu collab/README.md (và bearer token nếu có) khi package sẵn sàng rồi chỉnh job `collab` trong prometheus.yml.
+- targets:
+    - collab:4000
+  labels:
+    service: collab

@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Alertmanager — TEMPLATE (p0-11 §Cảnh báo): `bash ../scripts/render-config.sh observability` envsubst → rendered/alertmanager.yml.
+# Biến (deploy/observability/.env): ALERT_TELEGRAM_CHAT_ID, ALERT_EMAIL_TO, ALERT_SMTP_HOST (host:port), ALERT_SMTP_FROM, ALERT_SMTP_USER.
+# Bí mật đọc qua *_file (render tạo secrets/telegram_bot_token, secrets/smtp_password) — KHÔNG nhúng vào YAML.
+# Định tuyến: mọi cảnh báo → Telegram; `severity=critical` → THÊM email. Slack: thêm receiver `slack_configs` (api_url_file) và một route tương tự nếu cần.
+# ─────────────────────────────────────────────────────────────────────────────
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: "${ALERT_SMTP_HOST}"
+  smtp_from: "${ALERT_SMTP_FROM}"
+  smtp_auth_username: "${ALERT_SMTP_USER}"
+  smtp_auth_password_file: /etc/alertmanager/secrets/smtp_password
+  smtp_require_tls: true
+
+route:
+  receiver: ops-telegram
+  group_by: [alertname, service]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    # critical: nhắc lại mỗi giờ, gửi Telegram RỒI tiếp tục sang email.
+    - matchers: ['severity="critical"']
+      receiver: ops-telegram
+      repeat_interval: 1h
+      continue: true
+    - matchers: ['severity="critical"']
+      receiver: ops-email
+      repeat_interval: 1h
+
+receivers:
+  - name: ops-telegram
+    telegram_configs:
+      - bot_token_file: /etc/alertmanager/secrets/telegram_bot_token
+        chat_id: ${ALERT_TELEGRAM_CHAT_ID}
+        # Văn bản thuần (không parse_mode): summary có ký tự < > (vd "> 1%") sẽ làm Telegram từ chối bản HTML.
+        send_resolved: true
+        message: |-
+          [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} ({{ .CommonLabels.severity }}) — {{ .CommonLabels.env }}
+          {{ range .Alerts -}}
+          • {{ .Annotations.summary }}
+          {{ if .Annotations.runbook }}  ↳ {{ .Annotations.runbook }}{{ end }}
+          {{ end }}
+
+  - name: ops-email
+    email_configs:
+      - to: "${ALERT_EMAIL_TO}"
+        send_resolved: true
+        headers:
+          Subject: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} — Super App {{ .CommonLabels.env }}'
+
+# Một sự cố gốc che các cảnh báo hệ quả (tránh bão thông báo).
+inhibit_rules:
+  - source_matchers: ['alertname="ApiAllDown"']
+    target_matchers: ['alertname=~"ApiInstanceDown|ApiHigh5xx|ApiHighLatency|SocketDrop|ProbeFailed"']
+  - source_matchers: ['alertname="RedisDown"']
+    target_matchers: ['alertname=~"SocketAdapterDown|QueueBacklog|OutboxBacklog|ApiHigh5xx"']
+  - source_matchers: ['alertname="WorkerDown"']
+    target_matchers: ['alertname=~"QueueBacklog|OutboxBacklog|TurnProbeStale|PushFailureHigh"']

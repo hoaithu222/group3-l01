@@ -1,0 +1,65 @@
+{
+  "_note": [
+    "Bảng mã BIN NAPAS của ngân hàng Việt Nam dùng cho VietQR (p6-04 README §7: cập nhật TAY theo danh sách NAPAS).",
+    "⚠️ CHƯA ĐỐI CHIẾU với nguồn NAPAS chính thức — nhập từ kiến thức về danh sách VietQR công khai. Chỉ đưa vào các BIN đã chắc chắn; ngân hàng số và ngân hàng nước ngoài hiếm dùng (Cake, Ubank, Timo, CIMB, UOB, Hong Leong, KBank, Public Bank, Indovina, VRB…) CỐ Ý CHƯA đưa vào cho tới khi có bản đối chiếu. Người dùng vẫn nhập tay được mã BIN 6 số ở màn thêm tài khoản.",
+    "⛔ Nghiệm thu IR-39 (quét QR bằng app ngân hàng thật) là bước duy nhất chứng minh từng dòng dưới đây đúng — chưa chạy.",
+    "Trường: bin (6 chữ số) · code (mã viết tắt) · shortName (tên hiển thị) · logo (khoá trong assets/icons/bank, KHÔNG có tiền tố `bank/`)."
+  ],
+  "banks": [
+    { "bin": "970436", "code": "VCB", "shortName": "Vietcombank", "logo": "vietcombank" },
+    { "bin": "970415", "code": "CTG", "shortName": "VietinBank", "logo": "vietin" },
+    { "bin": "970418", "code": "BIDV", "shortName": "BIDV", "logo": "bidv" },
+    { "bin": "970405", "code": "VBA", "shortName": "Agribank", "logo": "agribank" },
+    { "bin": "970422", "code": "MB", "shortName": "MB Bank", "logo": "mb" },
+    { "bin": "970407", "code": "TCB", "shortName": "Techcombank", "logo": "techcombank" },
+    { "bin": "970416", "code": "ACB", "shortName": "ACB", "logo": "acb" },
+    { "bin": "970432", "code": "VPB", "shortName": "VPBank", "logo": "vpbank" },
+    { "bin": "970423", "code": "TPB", "shortName": "TPBank", "logo": "tpbank" },
+    { "bin": "970403", "code": "STB", "shortName": "Sacombank", "logo": "sacombank" },
+    { "bin": "970437", "code": "HDB", "shortName": "HDBank", "logo": "hdb" },
+    { "bin": "970441", "code": "VIB", "shortName": "VIB", "logo": "vib" },
+    { "bin": "970443", "code": "SHB", "shortName": "SHB", "logo": "shb" },
+    { "bin": "970431", "code": "EIB", "shortName": "Eximbank", "logo": "eximbank" },
+    { "bin": "970426", "code": "MSB", "shortName": "MSB", "logo": "msb" },
+    { "bin": "970448", "code": "OCB", "shortName": "OCB", "logo": "ocb" },
+    { "bin": "970440", "code": "SEAB", "shortName": "SeABank", "logo": "seabank" },
+    {
+      "bin": "970449",
+      "code": "LPB",
+      "shortName": "LPBank (LienVietPostBank)",
+      "logo": "lienvietpostbank"
+    },
+    { "bin": "970409", "code": "BAB", "shortName": "Bac A Bank", "logo": "bac-a" },
+    { "bin": "970428", "code": "NAB", "shortName": "Nam A Bank", "logo": "namabank" },
+    { "bin": "970419", "code": "NCB", "shortName": "NCB", "logo": "ncb" },
+    { "bin": "970425", "code": "ABB", "shortName": "ABBank", "logo": "abbank" },
+    { "bin": "970412", "code": "PVCB", "shortName": "PVcomBank", "logo": "pvcombank" },
+    { "bin": "970400", "code": "SGB", "shortName": "Saigonbank", "logo": "saigonbank" },
+    { "bin": "970429", "code": "SCB", "shortName": "SCB", "logo": "scb" },
+    { "bin": "970433", "code": "VBB", "shortName": "VietBank", "logo": "vietbank" },
+    {
+      "bin": "970454",
+      "code": "VCCB",
+      "shortName": "BVBank (Bản Việt)",
+      "logo": "vietcapitalbank"
+    },
+    { "bin": "970438", "code": "BVB", "shortName": "BaoVietBank", "logo": "baovietbank" },
+    { "bin": "970452", "code": "KLB", "shortName": "Kienlongbank", "logo": "kienlongbank" },
+    { "bin": "970430", "code": "PGB", "shortName": "PGBank", "logo": "pgbank" },
+    { "bin": "970408", "code": "GPB", "shortName": "GPBank", "logo": "gpbank" },
+    { "bin": "970414", "code": "OJB", "shortName": "OceanBank", "logo": "oceanbank" },
+    { "bin": "970444", "code": "CBB", "shortName": "CBBank", "logo": "cbbank" },
+    { "bin": "970427", "code": "VAB", "shortName": "VietABank", "logo": "vietabank" },
+    { "bin": "970446", "code": "COOPBANK", "shortName": "Co-opBank", "logo": "coopbank" },
+    { "bin": "970406", "code": "DOB", "shortName": "DongA Bank", "logo": "dongabank" },
+    { "bin": "970424", "code": "SHBVN", "shortName": "Shinhan Bank", "logo": "shinhanbank" },
+    { "bin": "970457", "code": "WOO", "shortName": "Woori Bank", "logo": "woori-bank" },
+    { "bin": "458761", "code": "HSBC", "shortName": "HSBC Việt Nam", "logo": "hsbc" },
+    {
+      "bin": "970410",
+      "code": "SCVN",
+      "shortName": "Standard Chartered",
+      "logo": "standard-chartered"
+    }
+  ]
+}

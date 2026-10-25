@@ -1,0 +1,25 @@
+# :443 chia theo SNI (đọc ClientHello, KHÔNG giải mã): TURN/TLS → bộ kết thúc TLS nội bộ :5443; còn lại → nginx http :8443 (wss của LiveKit).
+map $ssl_preread_server_name $edge_backend {
+  ${TURN_DOMAIN}  turn_tls;
+  default         web_tls;
+}
+
+upstream turn_tls { server 127.0.0.1:5443; }
+upstream web_tls  { server 127.0.0.1:8443; }
+
+server {
+  listen 443;
+  ssl_preread on;
+  proxy_pass $edge_backend;
+  proxy_timeout 1h;
+}
+
+# Kết thúc TLS của TURN (chứng chỉ turn.<domain>) → TURN thuần tới LiveKit `turn.tls_port` (5349, external_tls: true).
+server {
+  listen 127.0.0.1:5443 ssl;
+  ssl_certificate     /etc/letsencrypt/live/${TURN_DOMAIN}/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/${TURN_DOMAIN}/privkey.pem;
+  ssl_protocols       TLSv1.2 TLSv1.3;
+  proxy_pass 127.0.0.1:5349;
+  proxy_timeout 1h;
+}

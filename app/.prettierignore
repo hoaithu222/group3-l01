@@ -1,0 +1,15 @@
+node_modules
+android
+ios
+.expo
+dist
+coverage
+package-lock.json
+
+# Sinh tự động — định dạng lại ở đây là vô nghĩa, lần sinh sau ghi đè.
+*.generated.js
+*.generated.ts
+
+# Ảnh/font nhị phân
+assets/fonts
+assets/images

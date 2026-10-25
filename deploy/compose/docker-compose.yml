@@ -1,0 +1,220 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Super App — Docker Compose cho STAGING / PRODUCTION (p0-11).
+#
+# MỘT VM chạy: nginx (TLS) + admin SPA + api-1 + api-2 + worker + redis  (+ collab tuỳ chọn).
+# LiveKit + egress chạy ở VM RIÊNG (deploy/livekit) — riêng staging đơn-VM xem docker-compose.staging.override.yml.
+# Observability (Prometheus/Grafana/Loki…) là compose riêng: deploy/observability.
+#
+# Dùng (trên server, thư mục deploy/compose):
+#   cp .env.example .env             # điền TÊN MIỀN, tag ảnh, REDIS_PASSWORD…  (⛔ không commit)
+#   cp env.api.example .env.api      # điền bí mật runtime của BE (⛔ không commit, chmod 600)
+#   bash ../scripts/render-config.sh compose     # sinh rendered/well-known/* từ template
+#   docker compose pull && docker compose up -d
+# Staging: thêm  -f docker-compose.yml -f docker-compose.staging.override.yml
+#
+# Vì sao hai service `api-1`/`api-2` chứ không `deploy.replicas: 2`: nginx cần TÊN cố định cho từng replica (ip_hash cho /socket.io + rolling
+# từng replica theo `scripts/rolling.sh`); tên cố định cũng giữ được DNS ổn định khi một replica được tạo lại lúc deploy.
+#
+# ⚠️ Không đụng be/Dockerfile: ảnh `superapp-be` là ảnh Railway đang dùng (CMD chọn tiến trình theo PROCESS_ROLE). Compose chỉ đặt env + healthcheck.
+# ─────────────────────────────────────────────────────────────────────────────
+name: superapp
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+# Cấu hình chung cho api-1/api-2/worker. Bí mật (DATABASE_URL, JWT_*, LIVEKIT_*, FIREBASE_*, APNS_*, AWS_*, METRICS_TOKEN, SENTRY_DSN…) nằm ở `.env.api` trên server.
+x-be-service: &be-service
+  image: ${REGISTRY:?đặt REGISTRY trong .env (vd ghcr.io/vcijsc)}/superapp-be:${BE_TAG:?đặt BE_TAG trong .env (sha hoặc vX.Y.Z)}
+  env_file: [.env.api]
+  restart: unless-stopped
+  logging: *default-logging
+  depends_on:
+    redis:
+      condition: service_healthy
+
+x-be-env: &be-env
+  NODE_ENV: production
+  # Log JSON ra stdout (Promtail thu từ Docker), không ghi file trong container.
+  LOG_STDOUT: "true"
+  LOG_FORMAT: json
+  LOG_TO_FILE: "false"
+  REDIS_URL: redis://redis:6379
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?đặt REDIS_PASSWORD trong .env}
+  # Mã phát hành Sentry = tag ảnh (sha/semver) — khớp release trên Sentry.
+  SENTRY_RELEASE: ${BE_TAG}
+  SENTRY_ENVIRONMENT: ${ENV_NAME:?đặt ENV_NAME=staging|production trong .env}
+  APP_VERSION: ${BE_TAG}
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    # `noeviction` BẮT BUỘC cho BullMQ (evict khoá job = mất việc); maxmemory để cảnh báo RedisMemoryHigh có mẫu số.
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD:?đặt REDIS_PASSWORD trong .env}
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-512mb}
+      - --maxmemory-policy
+      - noeviction
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    restart: unless-stopped
+    logging: *default-logging
+
+  api-1:
+    <<: *be-service
+    environment:
+      <<: *be-env
+      PROCESS_ROLE: api
+      PORT: "3000"
+      INSTANCE_ID: api-1
+    # Bí danh chung `api` (DNS round-robin) cho khách NỘI BỘ không cần dính replica: collab → BE, LiveKit webhook (staging đơn-VM).
+    networks:
+      default:
+        aliases: [api]
+    healthcheck:
+      # Liveness (không kiểm phụ thuộc): DB/Redis lỗi không được làm Docker restart api. /api/health (đầy đủ) dành cho monitor ngoài (blackbox).
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health/live"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    # SHUTDOWN: server.ts drain socket rồi đợi WORKER_SHUTDOWN_GRACE_MS (30 s) + 5 s → 45 s để không bị SIGKILL giữa chừng.
+    stop_grace_period: 45s
+
+  api-2:
+    <<: *be-service
+    environment:
+      <<: *be-env
+      PROCESS_ROLE: api
+      PORT: "3000"
+      INSTANCE_ID: api-2
+    networks:
+      default:
+        aliases: [api]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health/live"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 45s
+
+  worker:
+    <<: *be-service
+    command: ["node", "dist/worker.js"]
+    environment:
+      <<: *be-env
+      PROCESS_ROLE: worker
+      INSTANCE_ID: worker-1
+      # Cổng metrics riêng của worker (Prometheus scrape worker:9464/metrics, Bearer METRICS_TOKEN). KHÔNG publish ra host.
+      WORKER_METRICS_PORT: "9464"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9464/health/live"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 60s
+
+  # Admin SPA: ảnh nginx:alpine + dist đã build (deploy/admin/Dockerfile). VITE_* nướng lúc build nên ảnh RIÊNG theo môi trường (ADMIN_TAG).
+  admin:
+    image: ${REGISTRY}/superapp-admin:${ADMIN_TAG:?đặt ADMIN_TAG trong .env (vd staging-<sha> / prod-vX.Y.Z)}
+    restart: unless-stopped
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Service soạn thảo cộng tác (p6-01, package `collab/` — agent khác tạo). GIẢ ĐỊNH theo plan p6-01: cổng 4000, GET /health, đường dẫn gốc `/`.
+  # Bật bằng profile: COMPOSE_PROFILES=collab (và đặt COLLAB_TAG, env.collab). Chưa có ảnh thì KHÔNG bật profile — nginx vẫn chạy (đường /collab trả 502).
+  collab:
+    profiles: ["collab"]
+    image: ${REGISTRY}/superapp-collab:${COLLAB_TAG:-latest}
+    env_file: [.env.collab]
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      BE_INTERNAL_URL: http://api:3000
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      REDIS_KEY_PREFIX: "superapp:collab:"
+      SENTRY_RELEASE: ${COLLAB_TAG:-latest}
+      SENTRY_ENVIRONMENT: ${ENV_NAME}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?đặt API_DOMAIN trong .env}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?đặt ADMIN_DOMAIN trong .env}
+      # `auth_basic` cho Swagger: "off" ở production (Swagger tắt), chuỗi realm ở staging.
+      SWAGGER_AUTH_BASIC: ${SWAGGER_AUTH_BASIC:-off}
+      # Ảnh nginx chính thức tự envsubst mọi `*.template` trong /etc/nginx/templates → NGINX_ENVSUBST_OUTPUT_DIR; bộ lọc regex CHỈ thay các biến này
+      # (giữ nguyên $host, $request_uri… của nginx). `$$` = ký tự `$` (compose).
+      NGINX_ENVSUBST_FILTER: "(_DOMAIN|_AUTH_BASIC)$$"
+      NGINX_ENVSUBST_OUTPUT_DIR: /etc/nginx/sites
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/snippets:/etc/nginx/snippets:ro
+      - ../nginx/sites/superapp.conf:/etc/nginx/templates/superapp.conf.template:ro
+      - ../nginx/sites/admin.conf:/etc/nginx/templates/admin.conf.template:ro
+      - ../nginx/static:/srv/static:ro
+      # AASA + assetlinks đã render từ template (scripts/render-config.sh compose).
+      - ./rendered/well-known:/srv/well-known:ro
+      # Chứng chỉ Let's Encrypt (certbot chạy trên host — scripts/issue-certs.sh) + webroot cho HTTP-01.
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+      # htpasswd cho Swagger staging (tuỳ chọn; thiếu file thì chỉ ảnh hưởng /api/docs).
+      - ./secrets:/etc/nginx/secrets:ro
+      # Bộ nhớ đệm trang portfolio công khai `/p/` (keys_zone=portfolio, p6-07).
+      - nginx_cache:/var/cache/nginx
+    depends_on:
+      api-1:
+        condition: service_healthy
+      api-2:
+        condition: service_healthy
+      admin:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/nginx-health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    logging: *default-logging
+
+volumes:
+  redis_data: {}
+  nginx_cache: {}
+
+# Tên mạng CỐ ĐỊNH để compose observability (deploy/observability) nối vào (`external: true`).
+networks:
+  default:
+    name: superapp_net

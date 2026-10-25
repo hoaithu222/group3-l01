@@ -1,0 +1,9 @@
+# Mục tiêu thăm dò HTTP(S) — chép thành targets/blackbox-http.yml rồi sửa tên miền theo môi trường (file_sd: Prometheus tự nạp lại, không cần restart).
+# Staging: staging.superapp.vcijsc.com · admin-staging.superapp.vcijsc.com · lk-staging.… · Production: superapp.vcijsc.com · admin.superapp.vcijsc.com · lk.…
+- targets:
+    - https://superapp.vcijsc.com/api/health # đầy đủ (db/redis/queue/livekit) — 503 khi db/redis lỗi hoặc đang drain
+    - https://superapp.vcijsc.com/.well-known/apple-app-site-association # app links iOS: 200, không redirect
+    - https://superapp.vcijsc.com/.well-known/assetlinks.json # app links Android
+    - https://admin.superapp.vcijsc.com/
+  labels:
+    service: edge

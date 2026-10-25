@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "privacy-guard",
+      "trigger": "PreToolUse",
+      "description": "Hỏi xác nhận trước khi agent đọc/ghi/xoá file bí mật (.env*, *.pem/*.key/*.jks/*.p8, *service-account*.json, google-services.json, GoogleService-Info.plist...).",
+      "action": {
+        "type": "command",
+        "command": "node .kiro/scripts/privacy-guard.cjs",
+        "timeout": 10
+      }
+    }
+  ]
+}

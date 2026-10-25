@@ -1,0 +1,158 @@
+{
+  "note": "14 loại push CANONICAL (13 TYPE_SPECS + call.incoming xử lý riêng cho VoIP — be.md §5.2 'Bảng §6.2 — 13 loại push chuẩn'). CHƯA liệt kê các loại push riêng từng module Phase 1+ (vd task.assigned/task.comment/task.due-soon ở FOUNDATION_PRESENTATION, workspace.invited, guest.expiring, mention.role, moderation.*, wallet.*, ...) — README p0-09 quy ước 'module Phase 1+ thêm dòng khi làm' cho socket catalog áp dụng tương tự ở đây; danh sách đó rất dài (>40 loại rải khắp modules/*, xem registerNotificationType) và nằm ngoài phạm vi đợt này.",
+  "source": "be/src/modules/notifications/services/push-payload.builder.ts (TYPE_SPECS + isCallIncoming), push-templates.vi.ts (visible)",
+  "types": [
+    {
+      "channel": "default",
+      "dataKeys": [
+        "messageId",
+        "count"
+      ],
+      "type": "message.new",
+      "visible": true,
+      "voip": false
+    },
+    {
+      "channel": "mentions",
+      "dataKeys": [
+        "messageId",
+        "threadId"
+      ],
+      "type": "mention",
+      "visible": true,
+      "voip": false
+    },
+    {
+      "channel": "mentions",
+      "dataKeys": [
+        "messageId",
+        "threadId"
+      ],
+      "type": "thread.reply",
+      "visible": true,
+      "voip": false
+    },
+    {
+      "channel": "calls",
+      "dataKeys": [
+        "callId",
+        "mediaKind",
+        "callerId",
+        "callerName",
+        "callerAvatar",
+        "scopeTitle",
+        "callVersion",
+        "expiresAt",
+        "scopeKind",
+        "originDeviceId"
+      ],
+      "type": "call.incoming",
+      "visible": false,
+      "voip": true
+    },
+    {
+      "channel": "calls",
+      "dataKeys": [
+        "callId",
+        "callUuid",
+        "reason",
+        "callVersion",
+        "originDeviceId"
+      ],
+      "type": "call.cancelled",
+      "visible": false,
+      "voip": false
+    },
+    {
+      "channel": "calls",
+      "dataKeys": [
+        "callId",
+        "callUuid",
+        "deviceId",
+        "callVersion",
+        "originDeviceId"
+      ],
+      "type": "call.answered-elsewhere",
+      "visible": false,
+      "voip": false
+    },
+    {
+      "channel": "default",
+      "dataKeys": [
+        "callId",
+        "callerId",
+        "callVersion"
+      ],
+      "type": "call.missed",
+      "visible": true,
+      "voip": false
+    },
+    {
+      "channel": "default",
+      "dataKeys": [
+        "meetingId",
+        "startAt"
+      ],
+      "type": "meeting.invited",
+      "visible": true,
+      "voip": false
+    },
+    {
+      "channel": "mentions",
+      "dataKeys": [
+        "meetingId",
+        "startAt",
+        "minutesBefore"
+      ],
+      "type": "meeting.reminder",
+      "visible": true,
+      "voip": false
+    },
+    {
+      "channel": "mentions",
+      "dataKeys": [
+        "meetingId"
+      ],
+      "type": "meeting.started",
+      "visible": true,
+      "voip": false
+    },
+    {
+      "channel": "default",
+      "dataKeys": [
+        "meetingId",
+        "version"
+      ],
+      "type": "meeting.updated",
+      "visible": true,
+      "voip": false
+    },
+    {
+      "channel": "default",
+      "dataKeys": [
+        "meetingId"
+      ],
+      "type": "meeting.cancelled",
+      "visible": true,
+      "voip": false
+    },
+    {
+      "channel": "default",
+      "dataKeys": [
+        "meetingId",
+        "recapId"
+      ],
+      "type": "meeting.recap-published",
+      "visible": true,
+      "voip": false
+    },
+    {
+      "channel": "default",
+      "dataKeys": [],
+      "type": "system.test",
+      "visible": true,
+      "voip": false
+    }
+  ],
+  "version": "manual-1"
+}

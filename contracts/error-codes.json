@@ -1,0 +1,2141 @@
+{
+  "codes": [
+    {
+      "code": "ADMIN_MEDIA_001",
+      "http": 400,
+      "message": "Khoảng thời gian thống kê không hợp lệ hoặc vượt quá 92 ngày"
+    },
+    {
+      "code": "ADMIN_MEDIA_002",
+      "http": 409,
+      "message": "Cuộc gọi này thuộc một cuộc họp, hãy kết thúc cuộc họp thay vì cuộc gọi"
+    },
+    {
+      "code": "ANN_001",
+      "http": 400,
+      "message": "Chỉ kênh thông báo mới yêu cầu xác nhận đã đọc"
+    },
+    {
+      "code": "ANN_002",
+      "http": 409,
+      "message": "Kênh đang có quá nhiều thông báo cần xác nhận"
+    },
+    {
+      "code": "ANN_003",
+      "http": 410,
+      "message": "Yêu cầu xác nhận đã bị huỷ hoặc hết hạn"
+    },
+    {
+      "code": "ASSET_001",
+      "message": "Loại tệp không được hỗ trợ"
+    },
+    {
+      "code": "ASSET_002",
+      "message": "Tệp vượt kích thước cho phép"
+    },
+    {
+      "code": "ASSET_003",
+      "message": "Tệp chưa sẵn sàng để sử dụng"
+    },
+    {
+      "code": "ASSET_004",
+      "message": "Bạn không thể thao tác với tệp này ở trạng thái hiện tại"
+    },
+    {
+      "code": "ASSET_005",
+      "message": "Tệp không thuộc quyền sử dụng của bạn"
+    },
+    {
+      "code": "ASSET_006",
+      "message": "Ghi âm vượt quá thời lượng cho phép"
+    },
+    {
+      "code": "ASSET_007",
+      "message": "Chưa nhận được nội dung tệp, hãy tải lên lại"
+    },
+    {
+      "code": "ASSET_008",
+      "message": "Không có bản xem trước cho tệp này"
+    },
+    {
+      "code": "ASSET_009",
+      "message": "Liên kết tải tệp đã hết hạn"
+    },
+    {
+      "code": "ASSET_010",
+      "message": "Tệp đang được sử dụng nên không thể xoá"
+    },
+    {
+      "code": "AUTH_001",
+      "message": "Email hoặc mật khẩu không đúng"
+    },
+    {
+      "code": "AUTH_002",
+      "message": "Token không hợp lệ"
+    },
+    {
+      "code": "AUTH_003",
+      "message": "Token đã hết hạn"
+    },
+    {
+      "code": "AUTH_004",
+      "message": "Token đã bị thu hồi, vui lòng đăng nhập lại"
+    },
+    {
+      "code": "AUTH_005",
+      "message": "Bạn không có quyền thực hiện hành động này"
+    },
+    {
+      "code": "AUTH_006",
+      "message": "Refresh token không hợp lệ hoặc đã hết hạn"
+    },
+    {
+      "code": "AUTH_008",
+      "message": "Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn"
+    },
+    {
+      "code": "AUTH_009",
+      "message": "Refresh token không tìm thấy, vui lòng đăng nhập lại"
+    },
+    {
+      "code": "AUTH_010",
+      "message": "Refresh token đã bị dùng lại, mọi phiên đã thu hồi"
+    },
+    {
+      "code": "AUTH_011",
+      "message": "Tài khoản đã bị khoá"
+    },
+    {
+      "code": "AUTH_012",
+      "message": "Tài khoản đang chờ xoá"
+    },
+    {
+      "code": "AUTH_013",
+      "message": "Không xác thực được bằng sinh trắc học. Vui lòng đăng nhập bằng mật khẩu"
+    },
+    {
+      "code": "AUTH_014",
+      "message": "Đăng nhập sinh trắc học trên thiết bị này đã bị vô hiệu. Vui lòng đăng nhập bằng mật khẩu rồi bật lại"
+    },
+    {
+      "code": "AUTH_015",
+      "message": "Đăng nhập sinh trắc học đã hết hạn. Vui lòng đăng nhập bằng mật khẩu rồi bật lại"
+    },
+    {
+      "code": "AUTH_016",
+      "message": "Đăng nhập sinh trắc học đang tạm tắt"
+    },
+    {
+      "code": "AUTH_017",
+      "message": "Thiếu thông tin nền tảng ứng dụng"
+    },
+    {
+      "code": "AUTH_018",
+      "message": "Mã nonce không hợp lệ hoặc đã hết hạn, vui lòng lấy mã mới"
+    },
+    {
+      "code": "AUTH_019",
+      "http": 400,
+      "message": "Email đã được xác minh"
+    },
+    {
+      "code": "AUTH_020",
+      "http": 400,
+      "message": "Mã xác minh không hợp lệ hoặc đã hết hạn"
+    },
+    {
+      "code": "AUTH_021",
+      "http": 400,
+      "message": "Cần nhập mật khẩu hiện tại để đổi mật khẩu hoặc email của chính bạn"
+    },
+    {
+      "code": "AUTH_022",
+      "http": 401,
+      "message": "Phiên đăng nhập mạng xã hội không hợp lệ hoặc đã hết hạn, vui lòng đăng nhập lại"
+    },
+    {
+      "code": "AUTH_023",
+      "http": 401,
+      "message": "Tài khoản mạng xã hội cần có email đã được xác minh để đăng nhập"
+    },
+    {
+      "code": "BLOCK_001",
+      "http": 400,
+      "message": "Không thể thực hiện với chính bạn"
+    },
+    {
+      "code": "BLOCK_002",
+      "http": 403,
+      "message": "Không thể gửi tin cho người này"
+    },
+    {
+      "code": "BLOCK_003",
+      "http": 403,
+      "message": "Không thể thêm người này"
+    },
+    {
+      "code": "BLOCK_004",
+      "http": 409,
+      "message": "Bạn đã chặn số người tối đa"
+    },
+    {
+      "code": "CALL_001",
+      "http": 404,
+      "message": "Không tìm thấy cuộc trò chuyện hoặc bạn không có quyền gọi"
+    },
+    {
+      "code": "CALL_002",
+      "http": 403,
+      "message": "Không thể gọi: cuộc trò chuyện đang chỉ đọc hoặc đã chặn nhau"
+    },
+    {
+      "code": "CALL_003",
+      "http": 409,
+      "message": "Người nhận đang bận"
+    },
+    {
+      "code": "CALL_004",
+      "http": 409,
+      "message": "Bạn đang ở trong một cuộc gọi khác"
+    },
+    {
+      "code": "CALL_005",
+      "http": 410,
+      "message": "Cuộc gọi không tồn tại hoặc đã kết thúc"
+    },
+    {
+      "code": "CALL_006",
+      "http": 409,
+      "message": "Cuộc gọi không còn đổ chuông (đã được trả lời ở nơi khác hoặc đã huỷ)"
+    },
+    {
+      "code": "CALL_007",
+      "http": 409,
+      "message": "Nhóm đang họp — hãy vào phòng họp"
+    },
+    {
+      "code": "CALL_008",
+      "http": 409,
+      "message": "Cuộc gọi đã đủ số người tham gia"
+    },
+    {
+      "code": "CALL_009",
+      "http": 429,
+      "message": "Bạn thực hiện cuộc gọi quá nhanh, vui lòng thử lại sau"
+    },
+    {
+      "code": "CALL_010",
+      "http": 400,
+      "message": "Không thể mời thêm vào cuộc gọi 1-1 — hãy tạo nhóm"
+    },
+    {
+      "code": "CALL_011",
+      "http": 409,
+      "message": "Trạng thái cuộc gọi đã thay đổi, vui lòng thử lại"
+    },
+    {
+      "code": "CALL_012",
+      "http": 503,
+      "message": "Tính năng gọi chưa được bật hoặc chưa cấu hình máy chủ media"
+    },
+    {
+      "code": "CALL_013",
+      "http": 400,
+      "message": "Phạm vi cuộc gọi không hợp lệ"
+    },
+    {
+      "code": "CALL_014",
+      "http": 403,
+      "message": "Bạn không phải người tham gia cuộc gọi này"
+    },
+    {
+      "code": "CALL_015",
+      "http": 403,
+      "message": "Bạn không có quyền kết thúc hoặc điều khiển cuộc gọi này"
+    },
+    {
+      "code": "CALL_016",
+      "http": 403,
+      "message": "Bạn đã bị mời ra khỏi phòng này"
+    },
+    {
+      "code": "CALL_017",
+      "http": 409,
+      "message": "Đang có người chia sẻ màn hình trong phòng"
+    },
+    {
+      "code": "CALL_018",
+      "http": 409,
+      "message": "Kênh hoặc nhóm đã lưu trữ, không thể vào phòng thoại"
+    },
+    {
+      "code": "CALL_019",
+      "http": 400,
+      "message": "Người nhận quyền chủ phòng không hợp lệ (phải đang ở trong phòng)"
+    },
+    {
+      "code": "CALL_POMO_001",
+      "http": 400,
+      "message": "Kênh này không phải phòng Pomodoro"
+    },
+    {
+      "code": "CALL_POMO_002",
+      "http": 409,
+      "message": "Phòng đang có phiên Pomodoro"
+    },
+    {
+      "code": "CALL_POMO_003",
+      "http": 409,
+      "message": "Chỉ đổi cấu hình khi phiên chưa bắt đầu"
+    },
+    {
+      "code": "CALL_POMO_004",
+      "http": 403,
+      "message": "Chỉ người điều khiển phiên được thực hiện thao tác này"
+    },
+    {
+      "code": "CALL_POMO_005",
+      "http": 409,
+      "message": "Lệnh không áp dụng được ở giai đoạn hiện tại"
+    },
+    {
+      "code": "CALL_POMO_006",
+      "http": 409,
+      "message": "Bạn cần vào phòng trước khi đặt mục tiêu"
+    },
+    {
+      "code": "CFG_001",
+      "message": "Không tìm thấy khoá cấu hình"
+    },
+    {
+      "code": "CFG_002",
+      "message": "Giá trị nằm ngoài giới hạn cho phép"
+    },
+    {
+      "code": "CFG_003",
+      "message": "Không thể bật tính năng: phân hệ chưa sẵn sàng hoặc thiếu cấu hình hạ tầng"
+    },
+    {
+      "code": "CFG_004",
+      "message": "Tính năng AI đang tạm dừng theo quyết định dự án"
+    },
+    {
+      "code": "CFG_005",
+      "message": "Tính năng chưa được bật"
+    },
+    {
+      "code": "CH_001",
+      "message": "Tên kênh đã tồn tại trong nhóm"
+    },
+    {
+      "code": "CH_002",
+      "message": "Tên kênh không hợp lệ"
+    },
+    {
+      "code": "CH_003",
+      "message": "Kênh phải còn ít nhất một người quản lý"
+    },
+    {
+      "code": "CH_004",
+      "message": "Kênh đã được lưu trữ, không thể thay đổi"
+    },
+    {
+      "code": "CH_005",
+      "message": "Cần chọn kênh công khai đang hoạt động khác làm kênh mặc định"
+    },
+    {
+      "code": "CH_006",
+      "message": "Nhóm đã có số kênh tối đa"
+    },
+    {
+      "code": "CH_007",
+      "message": "Kênh này không thể khôi phục bằng thao tác thường"
+    },
+    {
+      "code": "CH_008",
+      "message": "Thao tác không áp dụng cho loại hiển thị của kênh"
+    },
+    {
+      "code": "CH_009",
+      "message": "Không thể rời kênh mặc định"
+    },
+    {
+      "code": "CH_010",
+      "message": "Loại kênh này chưa được bật"
+    },
+    {
+      "code": "CH_011",
+      "message": "Có người được chọn không còn là thành viên nhóm"
+    },
+    {
+      "code": "CH_012",
+      "message": "Không thao tác cấp nền tảng trên kênh riêng tư"
+    },
+    {
+      "code": "CH_013",
+      "http": 403,
+      "message": "Bạn chỉ có thể chỉ định kênh riêng tư mà bạn quản lý"
+    },
+    {
+      "code": "COIN_001",
+      "http": 400,
+      "message": "Bạn không đủ xu"
+    },
+    {
+      "code": "COIN_002",
+      "http": 409,
+      "message": "Bạn đã sở hữu vật phẩm này"
+    },
+    {
+      "code": "COIN_003",
+      "http": 404,
+      "message": "Vật phẩm không còn được bán"
+    },
+    {
+      "code": "COIN_004",
+      "http": 409,
+      "message": "Phần thưởng nhiệm vụ đã được nhận"
+    },
+    {
+      "code": "COIN_005",
+      "http": 400,
+      "message": "Nhiệm vụ chưa hoàn thành"
+    },
+    {
+      "code": "COIN_006",
+      "http": 400,
+      "message": "Nội dung này không thể niêm yết hoặc không thể mua"
+    },
+    {
+      "code": "COIN_007",
+      "http": 409,
+      "message": "Bạn đã đạt số tin niêm yết tối đa"
+    },
+    {
+      "code": "COIN_008",
+      "http": 403,
+      "message": "Chợ tài liệu chưa được mở"
+    },
+    {
+      "code": "COIN_009",
+      "http": 400,
+      "message": "Số dư xu vượt mức tối đa cho phép"
+    },
+    {
+      "code": "CONTRIB_001",
+      "http": 405,
+      "message": "Bảng đóng góp chỉ để xem, không thể chỉnh sửa"
+    },
+    {
+      "code": "CONTRIB_002",
+      "http": 400,
+      "message": "Tổng trọng số phải bằng 100"
+    },
+    {
+      "code": "CONTRIB_003",
+      "http": 400,
+      "message": "Kỳ báo cáo không hợp lệ"
+    },
+    {
+      "code": "CONTRIB_004",
+      "http": 400,
+      "message": "Khoảng ngày của biểu đồ hoạt động vượt giới hạn cho phép"
+    },
+    {
+      "code": "CONTRIB_005",
+      "http": 410,
+      "message": "Tệp báo cáo đã hết hạn, vui lòng xuất lại"
+    },
+    {
+      "code": "CONTRIB_006",
+      "http": 409,
+      "message": "Báo cáo đang được tạo, vui lòng chờ"
+    },
+    {
+      "code": "CONV_001",
+      "message": "Bạn chỉ nhắn tin được với người cùng nhóm"
+    },
+    {
+      "code": "CONV_002",
+      "message": "Không thể gửi tin nhắn cho người này"
+    },
+    {
+      "code": "CONV_003",
+      "message": "Có người không thuộc nhóm làm việc này"
+    },
+    {
+      "code": "CONV_004",
+      "message": "Nhóm chat đã đạt số thành viên tối đa"
+    },
+    {
+      "code": "CONV_005",
+      "message": "Chủ nhóm cần chuyển quyền trước khi rời"
+    },
+    {
+      "code": "CONV_006",
+      "message": "Bạn không thể thao tác với người có vai trò ngang hoặc cao hơn"
+    },
+    {
+      "code": "CONV_007",
+      "message": "Cuộc trò chuyện đã giải tán hoặc lưu trữ"
+    },
+    {
+      "code": "CONV_008",
+      "message": "Không thể rời cuộc trò chuyện 1-1"
+    },
+    {
+      "code": "CONV_009",
+      "message": "Bạn chỉ ghim được tối đa 20 cuộc trò chuyện"
+    },
+    {
+      "code": "CONV_010",
+      "message": "Tên nhóm phải từ 1 đến 80 ký tự"
+    },
+    {
+      "code": "CONV_011",
+      "message": "Không thể tạo cuộc trò chuyện với chính bạn"
+    },
+    {
+      "code": "CONV_012",
+      "message": "Thành viên nhóm này do cuộc họp quản lý"
+    },
+    {
+      "code": "CONV_013",
+      "message": "Chưa có cuộc trò chuyện với người này"
+    },
+    {
+      "code": "CONV_014",
+      "http": 403,
+      "message": "Bạn chưa thể nhắn tin trực tiếp cho người này"
+    },
+    {
+      "code": "CONV_015",
+      "http": 403,
+      "message": "Nhóm chat này chưa cho phép khách tham gia"
+    },
+    {
+      "code": "DEVICE_001",
+      "message": "Thông tin thiết bị không hợp lệ"
+    },
+    {
+      "code": "DEVICE_002",
+      "message": "Không tìm thấy thiết bị"
+    },
+    {
+      "code": "DOC_001",
+      "http": 409,
+      "message": "Nhóm đã đạt số tài liệu tối đa"
+    },
+    {
+      "code": "DOC_002",
+      "http": 400,
+      "message": "Chuyển tài liệu riêng tư thành công khai cần xác nhận"
+    },
+    {
+      "code": "DOC_003",
+      "http": 400,
+      "message": "Người được mời không thuộc nhóm"
+    },
+    {
+      "code": "DOC_004",
+      "http": 409,
+      "message": "Tài liệu đã đủ số người cộng tác tối đa"
+    },
+    {
+      "code": "DOC_005",
+      "http": 403,
+      "message": "Tài liệu đã lưu trữ, chỉ xem được"
+    },
+    {
+      "code": "DOC_006",
+      "http": 413,
+      "message": "Tài liệu vượt dung lượng cho phép"
+    },
+    {
+      "code": "DOC_007",
+      "http": 409,
+      "message": "Đã đạt số bản lưu thủ công tối đa"
+    },
+    {
+      "code": "DOC_008",
+      "http": 409,
+      "message": "Không thể lưu tài liệu đã lưu trữ"
+    },
+    {
+      "code": "DOC_009",
+      "http": 503,
+      "message": "Dịch vụ soạn thảo cộng tác chưa sẵn sàng, vui lòng thử lại sau"
+    },
+    {
+      "code": "GAME_001",
+      "http": 404,
+      "message": "Không tìm thấy luật điểm kinh nghiệm"
+    },
+    {
+      "code": "GAME_002",
+      "http": 400,
+      "message": "Điều kiện mở huy hiệu không hợp lệ"
+    },
+    {
+      "code": "GAME_003",
+      "http": 409,
+      "message": "Mã huy hiệu đã tồn tại"
+    },
+    {
+      "code": "GAME_004",
+      "http": 400,
+      "message": "Mức điều chỉnh điểm kinh nghiệm vượt giới hạn cho phép"
+    },
+    {
+      "code": "GAME_005",
+      "http": 400,
+      "message": "Cấu hình cấp độ không hợp lệ"
+    },
+    {
+      "code": "GAME_006",
+      "http": 400,
+      "message": "Chỉ trưng bày được huy hiệu bạn đã đạt, tối đa 6 huy hiệu"
+    },
+    {
+      "code": "INT_001",
+      "http": 400,
+      "message": "Nhà cung cấp tích hợp chưa được bật"
+    },
+    {
+      "code": "INT_002",
+      "http": 409,
+      "message": "Nhóm đã đạt số tích hợp tối đa"
+    },
+    {
+      "code": "INT_003",
+      "http": 400,
+      "message": "Phiên kết nối đã hết hạn, vui lòng thử lại"
+    },
+    {
+      "code": "INT_004",
+      "http": 502,
+      "message": "Không lấy được dữ liệu từ nhà cung cấp"
+    },
+    {
+      "code": "INT_005",
+      "http": 403,
+      "message": "Không thể dùng kênh/nhóm này làm nơi nhận thông báo"
+    },
+    {
+      "code": "INT_006",
+      "http": 410,
+      "message": "Sự kiện đã quá thời gian lưu, không phát lại được"
+    },
+    {
+      "code": "INT_007",
+      "http": 401,
+      "message": "Chữ ký webhook không hợp lệ"
+    },
+    {
+      "code": "INT_008",
+      "http": 409,
+      "message": "Tài khoản bên thứ ba đã được kết nối với nhóm khác"
+    },
+    {
+      "code": "INT_009",
+      "http": 400,
+      "message": "Loại sự kiện không được hỗ trợ"
+    },
+    {
+      "code": "INT_010",
+      "http": 409,
+      "message": "Kết nối đã bị thu hồi, hãy kết nối lại"
+    },
+    {
+      "code": "INV_001",
+      "message": "Lời mời đã hết hạn"
+    },
+    {
+      "code": "INV_002",
+      "message": "Lời mời đã hết lượt sử dụng"
+    },
+    {
+      "code": "INV_003",
+      "message": "Lời mời đã bị thu hồi"
+    },
+    {
+      "code": "INV_004",
+      "message": "Bạn không thể tham gia nhóm này"
+    },
+    {
+      "code": "INV_005",
+      "message": "Nhóm đã được lưu trữ"
+    },
+    {
+      "code": "INV_006",
+      "message": "Nhóm đã có quá nhiều lời mời đang hoạt động"
+    },
+    {
+      "code": "INV_007",
+      "message": "Lời mời không hợp lệ"
+    },
+    {
+      "code": "INV_008",
+      "http": 403,
+      "message": "Lời mời này dành cho một địa chỉ email khác hoặc email của bạn chưa được xác minh"
+    },
+    {
+      "code": "INV_009",
+      "http": 400,
+      "message": "Liên kết mời không thể dùng để mời khách"
+    },
+    {
+      "code": "INV_010",
+      "http": 410,
+      "message": "Lời mời đã hết hạn hoặc đã bị thu hồi"
+    },
+    {
+      "code": "INV_011",
+      "http": 409,
+      "message": "Người này đã là thành viên của nhóm"
+    },
+    {
+      "code": "JOB_001",
+      "message": "Không tìm thấy job trong hàng đợi"
+    },
+    {
+      "code": "JOB_002",
+      "message": "Job không ở trạng thái lỗi nên không thể chạy lại"
+    },
+    {
+      "code": "JOB_003",
+      "message": "Sự kiện outbox không ở trạng thái thất bại"
+    },
+    {
+      "code": "MEDIA_001",
+      "http": 503,
+      "message": "Máy chủ media chưa được cấu hình"
+    },
+    {
+      "code": "MEDIA_002",
+      "http": 401,
+      "message": "Chữ ký webhook media không hợp lệ"
+    },
+    {
+      "code": "MEDIA_003",
+      "http": 502,
+      "message": "Không kết nối được máy chủ media, thử lại sau"
+    },
+    {
+      "code": "MEDIA_004",
+      "http": 409,
+      "message": "Phòng media không tồn tại hoặc đã đóng"
+    },
+    {
+      "code": "MEET_001",
+      "http": 404,
+      "message": "Không tìm thấy cuộc họp hoặc bạn không có quyền xem"
+    },
+    {
+      "code": "MEET_002",
+      "http": 403,
+      "message": "Chỉ chủ trì hoặc đồng chủ trì được thực hiện thao tác này"
+    },
+    {
+      "code": "MEET_003",
+      "http": 400,
+      "message": "Thời gian kết thúc phải sau thời gian bắt đầu và không dài quá 24 giờ"
+    },
+    {
+      "code": "MEET_004",
+      "http": 400,
+      "message": "Không thể đặt lịch họp trong quá khứ"
+    },
+    {
+      "code": "MEET_005",
+      "http": 409,
+      "message": "Cuộc họp đã đạt số người tham dự tối đa"
+    },
+    {
+      "code": "MEET_006",
+      "http": 409,
+      "message": "Cuộc họp chưa bắt đầu"
+    },
+    {
+      "code": "MEET_007",
+      "http": 403,
+      "message": "Cuộc họp đã bị khoá, không thể tham gia thêm"
+    },
+    {
+      "code": "MEET_008",
+      "http": 409,
+      "message": "Bạn đang chờ chủ trì cho vào phòng"
+    },
+    {
+      "code": "MEET_009",
+      "http": 409,
+      "message": "Thao tác không hợp lệ với trạng thái hiện tại của cuộc họp"
+    },
+    {
+      "code": "MEET_010",
+      "http": 409,
+      "message": "Cuộc họp dùng nền tảng bên ngoài, hãy mở liên kết cuộc họp"
+    },
+    {
+      "code": "MEET_011",
+      "http": 400,
+      "message": "Quy tắc lặp lại không hợp lệ"
+    },
+    {
+      "code": "MEET_012",
+      "http": 409,
+      "message": "Chưa tới giờ mở phòng họp"
+    },
+    {
+      "code": "MEET_013",
+      "http": 403,
+      "message": "Bạn đã bị mời ra khỏi phiên họp này"
+    },
+    {
+      "code": "MEET_014",
+      "http": 400,
+      "message": "Người được mời phải là thành viên đang hoạt động của workspace"
+    },
+    {
+      "code": "MEET_015",
+      "http": 400,
+      "message": "Liên kết cuộc họp không hợp lệ với nền tảng đã chọn"
+    },
+    {
+      "code": "MEET_016",
+      "http": 409,
+      "message": "Không thể xoá hoặc rút chủ trì — hãy chuyển quyền chủ trì trước"
+    },
+    {
+      "code": "MEET_017",
+      "http": 403,
+      "message": "Chủ trì chưa cho bạn vào phòng họp, hãy thử lại sau"
+    },
+    {
+      "code": "MEET_018",
+      "http": 409,
+      "message": "Phòng họp đã đủ số người tham gia"
+    },
+    {
+      "code": "MEET_019",
+      "http": 403,
+      "message": "Không thể thực hiện thao tác này với chủ trì"
+    },
+    {
+      "code": "MEET_020",
+      "http": 404,
+      "message": "Người này hiện không có trong phòng họp"
+    },
+    {
+      "code": "MEET_021",
+      "http": 409,
+      "message": "Chỉ viết biên bản cho cuộc họp đang diễn ra hoặc đã kết thúc"
+    },
+    {
+      "code": "MEET_022",
+      "http": 409,
+      "message": "Biên bản đã đạt số tệp đính kèm tối đa"
+    },
+    {
+      "code": "MEET_023",
+      "http": 400,
+      "message": "Nội dung biên bản trống hoặc quá dài"
+    },
+    {
+      "code": "MENTOR_001",
+      "http": 409,
+      "message": "Nhóm đã có tối đa số bài tìm cố vấn đang mở"
+    },
+    {
+      "code": "MENTOR_002",
+      "http": 409,
+      "message": "Bài đăng không còn nhận ứng tuyển"
+    },
+    {
+      "code": "MENTOR_003",
+      "http": 409,
+      "message": "Bạn đã ứng tuyển bài này"
+    },
+    {
+      "code": "MENTOR_004",
+      "http": 400,
+      "message": "Bạn đã là thành viên hoặc không thể tham gia nhóm này"
+    },
+    {
+      "code": "MENTOR_005",
+      "http": 409,
+      "message": "Bài đã đủ cố vấn hoặc vừa thay đổi, tải lại rồi thử lại"
+    },
+    {
+      "code": "MENTOR_006",
+      "http": 429,
+      "message": "Bạn có quá nhiều đơn đang chờ"
+    },
+    {
+      "code": "MENTOR_007",
+      "http": 400,
+      "message": "Tổng thời gian cố vấn vượt giới hạn"
+    },
+    {
+      "code": "MENTOR_008",
+      "http": 400,
+      "message": "Kênh được chọn không hợp lệ"
+    },
+    {
+      "code": "MENTOR_009",
+      "http": 409,
+      "message": "Đợt cố vấn đã kết thúc"
+    },
+    {
+      "code": "MENTOR_010",
+      "http": 409,
+      "message": "Đơn ứng tuyển không còn ở trạng thái chờ"
+    },
+    {
+      "code": "MOCK_001",
+      "http": 409,
+      "message": "Bộ học chưa có câu hỏi chấm điểm được để thi thử"
+    },
+    {
+      "code": "MOCK_002",
+      "http": 409,
+      "message": "Bạn đang có bài thi dở của bộ học này"
+    },
+    {
+      "code": "MOCK_003",
+      "http": 409,
+      "message": "Đã hết thời gian làm bài"
+    },
+    {
+      "code": "MOCK_004",
+      "http": 409,
+      "message": "Bài thi đã được nộp"
+    },
+    {
+      "code": "MOCK_005",
+      "http": 400,
+      "message": "Câu trả lời không thuộc đề thi"
+    },
+    {
+      "code": "MOCK_006",
+      "http": 429,
+      "message": "Bạn đã thi thử bộ học này quá số lần cho phép hôm nay"
+    },
+    {
+      "code": "MOD_001",
+      "http": 409,
+      "message": "Báo cáo này đã được xử lý"
+    },
+    {
+      "code": "MOD_002",
+      "http": 404,
+      "message": "Không tìm thấy nội dung để báo cáo"
+    },
+    {
+      "code": "MOD_003",
+      "http": 400,
+      "message": "Hành động không áp dụng cho loại báo cáo này"
+    },
+    {
+      "code": "MOD_004",
+      "http": 403,
+      "message": "Không có quyền xem nội dung này"
+    },
+    {
+      "code": "MOD_005",
+      "http": 403,
+      "message": "Quyền xem nội dung đã hết hạn"
+    },
+    {
+      "code": "MOD_006",
+      "http": 429,
+      "message": "Bạn gửi báo cáo quá nhiều, thử lại sau"
+    },
+    {
+      "code": "MSG_001",
+      "message": "Tin nhắn vượt quá 4.000 ký tự"
+    },
+    {
+      "code": "MSG_002",
+      "message": "Mỗi tin tối đa 5 tệp đính kèm"
+    },
+    {
+      "code": "MSG_003",
+      "message": "Đã quá thời gian cho phép sửa tin nhắn"
+    },
+    {
+      "code": "MSG_004",
+      "message": "Bạn không thể gửi tin nhắn ở đây"
+    },
+    {
+      "code": "MSG_005",
+      "message": "Tệp đính kèm chưa sẵn sàng hoặc không hợp lệ"
+    },
+    {
+      "code": "MSG_006",
+      "message": "Tin nhắn đã bị thu hồi"
+    },
+    {
+      "code": "MSG_007",
+      "message": "Tin nhắn trống"
+    },
+    {
+      "code": "MSG_008",
+      "message": "Nhắc tên không hợp lệ"
+    },
+    {
+      "code": "MSG_009",
+      "message": "Chỉ người gửi mới sửa được tin nhắn này"
+    },
+    {
+      "code": "MSG_010",
+      "message": "Đã đạt số tin ghim tối đa, hãy bỏ ghim một tin cũ"
+    },
+    {
+      "code": "MSG_011",
+      "message": "Tin nhắn thoại dài quá 5 phút"
+    },
+    {
+      "code": "MSG_012",
+      "message": "Không tìm thấy tin nhắn trong cuộc trò chuyện này"
+    },
+    {
+      "code": "MSG_013",
+      "message": "Biểu tượng cảm xúc không hợp lệ"
+    },
+    {
+      "code": "MSG_014",
+      "message": "Tin nhắn đã có quá nhiều loại cảm xúc"
+    },
+    {
+      "code": "MSG_015",
+      "message": "Không thể chuyển tiếp tin nhắn này"
+    },
+    {
+      "code": "MSG_016",
+      "message": "Không thể xem trước liên kết này"
+    },
+    {
+      "code": "MSG_017",
+      "message": "Chưa hỗ trợ chuyển tiếp tới người dùng trực tiếp (hội thoại chưa khả dụng)"
+    },
+    {
+      "code": "MSG_018",
+      "message": "Cuộc trò chuyện này không hỗ trợ luồng trả lời"
+    },
+    {
+      "code": "MSG_019",
+      "message": "Không thể tạo luồng trong một luồng"
+    },
+    {
+      "code": "MSG_020",
+      "message": "Bạn không được nhắc tất cả thành viên ở đây"
+    },
+    {
+      "code": "MSG_021",
+      "message": "Bạn đã nhắc tất cả quá nhiều lần, thử lại sau"
+    },
+    {
+      "code": "NOTI_001",
+      "message": "Bộ lọc thông báo không hợp lệ"
+    },
+    {
+      "code": "NOTI_002",
+      "message": "Không tìm thấy thông báo"
+    },
+    {
+      "code": "NOTI_003",
+      "message": "Mốc thời gian không hợp lệ"
+    },
+    {
+      "code": "NOTI_004",
+      "message": "Cài đặt thông báo không hợp lệ"
+    },
+    {
+      "code": "O2O_001",
+      "http": 409,
+      "message": "Tiệm hiện không nhận đơn"
+    },
+    {
+      "code": "O2O_002",
+      "http": 400,
+      "message": "Tiệm không hỗ trợ cấu hình in đã chọn"
+    },
+    {
+      "code": "O2O_003",
+      "http": 400,
+      "message": "Tệp không hợp lệ để in (chỉ PDF)"
+    },
+    {
+      "code": "O2O_004",
+      "http": 409,
+      "message": "Không thể thực hiện ở trạng thái đơn hiện tại"
+    },
+    {
+      "code": "O2O_005",
+      "http": 409,
+      "message": "Đơn chưa có báo giá"
+    },
+    {
+      "code": "O2O_006",
+      "http": 403,
+      "message": "Chỉ tải tệp sau khi đã nhận đơn"
+    },
+    {
+      "code": "O2O_007",
+      "http": 400,
+      "message": "Mã PIN không đúng"
+    },
+    {
+      "code": "O2O_008",
+      "http": 423,
+      "message": "Nhập sai quá nhiều lần, thử lại sau"
+    },
+    {
+      "code": "O2O_009",
+      "http": 400,
+      "message": "Không tìm thấy tài khoản chủ tiệm"
+    },
+    {
+      "code": "O2O_010",
+      "http": 404,
+      "message": "Địa điểm không còn hiển thị"
+    },
+    {
+      "code": "O2O_011",
+      "http": 400,
+      "message": "Tệp vượt số trang cho phép"
+    },
+    {
+      "code": "O2O_012",
+      "http": 400,
+      "message": "Khoảng trang không hợp lệ"
+    },
+    {
+      "code": "O2O_013",
+      "http": 409,
+      "message": "Địa điểm đã có tiệm in hoặc không phải tiệm in"
+    },
+    {
+      "code": "OTP_001",
+      "http": 400,
+      "message": "Mã OTP không tồn tại hoặc đã hết hạn, vui lòng yêu cầu mã mới"
+    },
+    {
+      "code": "OTP_002",
+      "http": 400,
+      "message": "Mã OTP không đúng"
+    },
+    {
+      "code": "OTP_003",
+      "http": 400,
+      "message": "OTP đã bị khoá do nhập sai quá nhiều lần, vui lòng yêu cầu mã mới"
+    },
+    {
+      "code": "OTP_004",
+      "http": 429,
+      "message": "Vui lòng đợi trước khi yêu cầu mã OTP mới"
+    },
+    {
+      "code": "OTP_005",
+      "http": 429,
+      "message": "Bạn đã yêu cầu quá nhiều mã OTP, vui lòng thử lại sau 1 giờ"
+    },
+    {
+      "code": "PERM_001",
+      "message": "Không có quyền trong workspace này"
+    },
+    {
+      "code": "PERM_002",
+      "message": "Không có quyền với kênh này"
+    },
+    {
+      "code": "PERM_003",
+      "message": "Bạn không có quyền với cuộc trò chuyện này"
+    },
+    {
+      "code": "PERM_004",
+      "message": "Bạn không có quyền với cuộc họp này"
+    },
+    {
+      "code": "PERM_005",
+      "message": "Bạn không ở trong cuộc gọi này"
+    },
+    {
+      "code": "PERM_006",
+      "message": "Vai trò của bạn không đủ để thực hiện thao tác"
+    },
+    {
+      "code": "PERM_404",
+      "http": 404,
+      "message": "Không tìm thấy hoặc bạn không có quyền truy cập"
+    },
+    {
+      "code": "PLAG_001",
+      "http": 400,
+      "message": "Số tệp quét không hợp lệ (tối đa 50 tệp, chế độ so với nhau cần ít nhất 2 tệp)"
+    },
+    {
+      "code": "PLAG_002",
+      "http": 422,
+      "message": "Các tệp đã chọn chưa hỗ trợ kiểm tra trùng lặp"
+    },
+    {
+      "code": "PLAG_003",
+      "http": 409,
+      "message": "Nhóm đang có quá nhiều lượt quét chạy cùng lúc, vui lòng đợi lượt trước hoàn tất"
+    },
+    {
+      "code": "PLAG_004",
+      "http": 429,
+      "message": "Nhóm đã dùng hết số lượt quét trong ngày"
+    },
+    {
+      "code": "PLAG_005",
+      "http": 409,
+      "message": "Lượt quét chưa hoàn tất hoặc đã kết thúc"
+    },
+    {
+      "code": "PLAG_006",
+      "http": 410,
+      "message": "Báo cáo đã hết thời hạn lưu trữ"
+    },
+    {
+      "code": "POLL_001",
+      "http": 400,
+      "message": "Khảo sát cần từ 2 đến 10 lựa chọn, không trùng nhau và không quá dài"
+    },
+    {
+      "code": "POLL_002",
+      "http": 400,
+      "message": "Thời hạn khảo sát phải ở tương lai và không quá 30 ngày"
+    },
+    {
+      "code": "POLL_003",
+      "http": 400,
+      "message": "Khảo sát này chỉ cho chọn một lựa chọn"
+    },
+    {
+      "code": "POLL_004",
+      "http": 409,
+      "message": "Khảo sát đã kết thúc, không thể bầu thêm"
+    },
+    {
+      "code": "POLL_005",
+      "http": 404,
+      "message": "Không tìm thấy khảo sát hoặc lựa chọn"
+    },
+    {
+      "code": "POLL_006",
+      "http": 403,
+      "message": "Khảo sát ẩn danh không hiển thị danh sách người bầu"
+    },
+    {
+      "code": "PORT_001",
+      "http": 409,
+      "message": "Đường dẫn hồ sơ đã có người dùng"
+    },
+    {
+      "code": "PORT_002",
+      "http": 400,
+      "message": "Đường dẫn chỉ gồm chữ thường, số và dấu gạch ngang (3–30 ký tự)"
+    },
+    {
+      "code": "PORT_003",
+      "http": 400,
+      "message": "Đường dẫn chứa từ không được phép"
+    },
+    {
+      "code": "PORT_004",
+      "http": 404,
+      "message": "Bạn chưa có đóng góp nào được ghi nhận trong nhóm này"
+    },
+    {
+      "code": "PORT_005",
+      "http": 409,
+      "message": "Đã đạt số dự án tối đa trong hồ sơ"
+    },
+    {
+      "code": "PORT_006",
+      "http": 409,
+      "message": "Dự án này đã có trong hồ sơ"
+    },
+    {
+      "code": "PORT_007",
+      "http": 429,
+      "message": "Bạn làm mới số liệu quá nhiều, vui lòng thử lại sau"
+    },
+    {
+      "code": "PORT_008",
+      "http": 403,
+      "message": "Hồ sơ đã bị gỡ do vi phạm, liên hệ hỗ trợ để được xem xét"
+    },
+    {
+      "code": "PORT_009",
+      "http": 409,
+      "message": "Hồ sơ đang được tạo trang, vui lòng đợi"
+    },
+    {
+      "code": "PORT_010",
+      "http": 400,
+      "message": "Hồ sơ chưa có nội dung để công khai"
+    },
+    {
+      "code": "PORT_011",
+      "http": 409,
+      "message": "Hồ sơ chưa được công khai"
+    },
+    {
+      "code": "PORT_012",
+      "http": 409,
+      "message": "Hồ sơ không ở trạng thái bị gỡ"
+    },
+    {
+      "code": "PUSH_001",
+      "message": "Dịch vụ thông báo đẩy chưa được cấu hình"
+    },
+    {
+      "code": "PUSH_002",
+      "message": "Người dùng chưa có thiết bị nhận thông báo"
+    },
+    {
+      "code": "QUIZ_001",
+      "http": 404,
+      "message": "Mã PIN không đúng hoặc phiên đã hết hạn"
+    },
+    {
+      "code": "QUIZ_002",
+      "http": 410,
+      "message": "Phiên thi đã kết thúc"
+    },
+    {
+      "code": "QUIZ_003",
+      "http": 409,
+      "message": "Phòng thi đã đủ người"
+    },
+    {
+      "code": "QUIZ_004",
+      "http": 409,
+      "message": "Bạn đã trả lời câu này"
+    },
+    {
+      "code": "QUIZ_005",
+      "http": 409,
+      "message": "Câu hỏi đã hết thời gian"
+    },
+    {
+      "code": "QUIZ_006",
+      "http": 400,
+      "message": "Bộ câu hỏi không đủ câu trắc nghiệm"
+    },
+    {
+      "code": "QUIZ_007",
+      "http": 409,
+      "message": "Thao tác không hợp lệ với trạng thái phiên hiện tại"
+    },
+    {
+      "code": "QUIZ_008",
+      "message": "Kết quả đang được tổng hợp, thử lại sau"
+    },
+    {
+      "code": "QUIZ_009",
+      "http": 503,
+      "message": "Không tạo được mã PIN, vui lòng thử lại"
+    },
+    {
+      "code": "QUIZ_010",
+      "http": 403,
+      "message": "Bạn đã bị mời ra khỏi phòng thi này"
+    },
+    {
+      "code": "RATE_001",
+      "message": "Quá nhiều yêu cầu, vui lòng thử lại sau"
+    },
+    {
+      "code": "RATE_002",
+      "message": "Bạn thao tác quá nhanh, vui lòng thử lại sau"
+    },
+    {
+      "code": "RATE_003",
+      "message": "Vượt giới hạn tác vụ theo giờ, vui lòng thử lại sau"
+    },
+    {
+      "code": "REC_001",
+      "http": 409,
+      "message": "Còn người tham gia chưa đồng ý ghi hình"
+    },
+    {
+      "code": "REC_002",
+      "http": 409,
+      "message": "Cuộc họp đang được ghi hình"
+    },
+    {
+      "code": "REC_003",
+      "http": 503,
+      "message": "Không thể bắt đầu ghi hình lúc này, vui lòng thử lại"
+    },
+    {
+      "code": "REC_004",
+      "http": 409,
+      "message": "Bản ghi chưa sẵn sàng"
+    },
+    {
+      "code": "REC_005",
+      "http": 404,
+      "message": "Bản ghi không còn khả dụng (đã xoá hoặc hết hạn lưu trữ)"
+    },
+    {
+      "code": "REC_006",
+      "http": 403,
+      "message": "Cuộc họp này không cho phép ghi hình"
+    },
+    {
+      "code": "REC_007",
+      "http": 409,
+      "message": "Chỉ ghi hình được khi cuộc họp đang diễn ra"
+    },
+    {
+      "code": "REC_008",
+      "http": 409,
+      "message": "Yêu cầu đồng ý đã hết hạn, hãy gửi lại yêu cầu"
+    },
+    {
+      "code": "REC_009",
+      "http": 409,
+      "message": "Hệ thống lưu trữ hiện tại không hỗ trợ ghi hình"
+    },
+    {
+      "code": "RECR_001",
+      "http": 409,
+      "message": "Bạn đã thuộc một doanh nghiệp"
+    },
+    {
+      "code": "RECR_002",
+      "http": 403,
+      "message": "Doanh nghiệp chưa được duyệt hoặc đang tạm ngưng"
+    },
+    {
+      "code": "RECR_003",
+      "http": 403,
+      "message": "Chỉ chủ sở hữu doanh nghiệp được thực hiện thao tác này"
+    },
+    {
+      "code": "RECR_004",
+      "http": 409,
+      "message": "Doanh nghiệp với tên hoặc mã số thuế này đã được đăng ký"
+    },
+    {
+      "code": "RECR_005",
+      "http": 429,
+      "message": "Doanh nghiệp đã dùng hết lượt gửi lời mời trong tháng"
+    },
+    {
+      "code": "RECR_006",
+      "http": 409,
+      "message": "Đã có lời mời đang mở với ứng viên này"
+    },
+    {
+      "code": "RECR_007",
+      "http": 422,
+      "message": "Không thể gửi lời mời cho ứng viên này"
+    },
+    {
+      "code": "RECR_008",
+      "http": 403,
+      "message": "Chỉ trao đổi được sau khi ứng viên bấm Quan tâm"
+    },
+    {
+      "code": "RECR_009",
+      "http": 409,
+      "message": "Trạng thái hiện tại không cho phép thao tác này"
+    },
+    {
+      "code": "RECR_010",
+      "http": 429,
+      "message": "Đã đạt giới hạn xem hồ sơ ứng viên trong ngày"
+    },
+    {
+      "code": "RECR_011",
+      "http": 409,
+      "message": "Người dùng này đã thuộc doanh nghiệp khác"
+    },
+    {
+      "code": "RECR_012",
+      "http": 400,
+      "message": "Không thể xoá chủ sở hữu cuối cùng của doanh nghiệp"
+    },
+    {
+      "code": "REMIND_001",
+      "http": 400,
+      "message": "Thời điểm nhắc phải sau ít nhất 1 phút và trong vòng 365 ngày"
+    },
+    {
+      "code": "REMIND_002",
+      "http": 409,
+      "message": "Bạn đã có tối đa 100 lời nhắc đang chờ"
+    },
+    {
+      "code": "RES_001",
+      "message": "Tài nguyên không tồn tại"
+    },
+    {
+      "code": "RES_002",
+      "message": "Tài nguyên đã tồn tại"
+    },
+    {
+      "code": "RES_003",
+      "message": "Dữ liệu đã thay đổi, vui lòng tải lại rồi thử lại"
+    },
+    {
+      "code": "RES_004",
+      "message": "Yêu cầu trùng đang được xử lý"
+    },
+    {
+      "code": "REVIEW_001",
+      "http": 409,
+      "message": "Lượt chấm đã đóng hoặc bạn không còn được giao chấm thẻ này"
+    },
+    {
+      "code": "REVIEW_002",
+      "http": 400,
+      "message": "Điểm chấm không khớp tiêu chí đánh giá"
+    },
+    {
+      "code": "REVIEW_003",
+      "http": 409,
+      "message": "Bạn đang là người thực hiện thẻ này nên không thể tự chấm"
+    },
+    {
+      "code": "REVIEW_004",
+      "http": 400,
+      "message": "Cấu hình chấm chéo không hợp lệ"
+    },
+    {
+      "code": "REVIEW_005",
+      "http": 409,
+      "message": "Không có thành viên phù hợp để giao chấm"
+    },
+    {
+      "code": "REVIEW_006",
+      "http": 400,
+      "message": "Vui lòng ghi nhận xét khi yêu cầu sửa"
+    },
+    {
+      "code": "REVIEW_007",
+      "http": 409,
+      "message": "Thẻ không có lượt chấm đang mở"
+    },
+    {
+      "code": "RMAP_001",
+      "http": 409,
+      "message": "Đường dẫn lộ trình đã tồn tại"
+    },
+    {
+      "code": "RMAP_002",
+      "http": 400,
+      "message": "Nội dung bài học không hợp lệ"
+    },
+    {
+      "code": "RMAP_003",
+      "http": 409,
+      "message": "Không xoá được tháng còn buổi học"
+    },
+    {
+      "code": "RMAP_004",
+      "http": 409,
+      "message": "Trạng thái đăng ký lộ trình không phù hợp"
+    },
+    {
+      "code": "RMAP_005",
+      "http": 409,
+      "message": "Lộ trình chưa có buổi nào được xuất bản"
+    },
+    {
+      "code": "RMAP_006",
+      "http": 403,
+      "message": "Buổi học chưa mở — hãy hoàn thành buổi trước"
+    },
+    {
+      "code": "RMAP_007",
+      "http": 400,
+      "message": "Mục tự kiểm tra không thuộc buổi học này"
+    },
+    {
+      "code": "RMAP_008",
+      "http": 409,
+      "message": "Đã đạt giới hạn số lượng"
+    },
+    {
+      "code": "RSC_001",
+      "http": 400,
+      "message": "Thư mục vượt quá số cấp cho phép"
+    },
+    {
+      "code": "RSC_002",
+      "http": 409,
+      "message": "Đã có thư mục cùng tên ở vị trí này"
+    },
+    {
+      "code": "RSC_003",
+      "http": 400,
+      "message": "Tệp chưa sẵn sàng hoặc không thể thêm vào kho tài liệu"
+    },
+    {
+      "code": "RSC_004",
+      "http": 409,
+      "message": "Thư mục còn nội dung, hãy xoá hoặc di chuyển nội dung trước"
+    },
+    {
+      "code": "RSC_005",
+      "http": 409,
+      "message": "Tệp này chưa có bản xem trước"
+    },
+    {
+      "code": "RSC_006",
+      "http": 400,
+      "message": "Không thể di chuyển thư mục vào chính nó hoặc thư mục con của nó"
+    },
+    {
+      "code": "RSC_007",
+      "http": 413,
+      "message": "Kho tài liệu của nhóm đã đầy dung lượng"
+    },
+    {
+      "code": "RSC_008",
+      "http": 409,
+      "message": "Không thể khôi phục vì vị trí gốc không còn"
+    },
+    {
+      "code": "RT_400",
+      "message": "Dữ liệu sự kiện không hợp lệ"
+    },
+    {
+      "code": "RT_401",
+      "message": "Phiên kết nối không hợp lệ, vui lòng kết nối lại"
+    },
+    {
+      "code": "RT_404",
+      "message": "Không có kênh sự kiện này"
+    },
+    {
+      "code": "RT_409",
+      "message": "Bạn chưa tham gia phòng này"
+    },
+    {
+      "code": "RT_413",
+      "message": "Dữ liệu sự kiện quá lớn"
+    },
+    {
+      "code": "RT_429",
+      "message": "Thao tác quá nhanh, thử lại sau"
+    },
+    {
+      "code": "SCHED_001",
+      "http": 400,
+      "message": "Thời điểm gửi phải sau ít nhất 1 phút và trong vòng 30 ngày"
+    },
+    {
+      "code": "SCHED_002",
+      "http": 409,
+      "message": "Bạn đã có tối đa 50 tin hẹn giờ đang chờ gửi"
+    },
+    {
+      "code": "SCHED_003",
+      "http": 409,
+      "message": "Tin hẹn giờ đã được gửi hoặc đã huỷ, không thể thay đổi"
+    },
+    {
+      "code": "SCHED_004",
+      "http": 403,
+      "message": "Không thể gửi tin: bạn không còn quyền gửi hoặc cuộc trò chuyện đã đóng"
+    },
+    {
+      "code": "SKILL_001",
+      "http": 409,
+      "message": "Mã kỹ năng đã tồn tại"
+    },
+    {
+      "code": "SKILL_002",
+      "http": 400,
+      "message": "Tiêu chí kỹ năng không hợp lệ"
+    },
+    {
+      "code": "SKILL_003",
+      "http": 404,
+      "message": "Người dùng chưa có huy hiệu kỹ năng này"
+    },
+    {
+      "code": "SKILL_004",
+      "http": 409,
+      "message": "Huy hiệu chưa bị thu hồi"
+    },
+    {
+      "code": "SKILL_005",
+      "http": 409,
+      "message": "Đã đạt số kỹ năng tối đa"
+    },
+    {
+      "code": "SKILL_006",
+      "http": 429,
+      "message": "Vừa chạy đánh giá lại gần đây, vui lòng thử lại sau"
+    },
+    {
+      "code": "SR_001",
+      "http": 409,
+      "message": "Thẻ này đang tạm ngừng ôn tập"
+    },
+    {
+      "code": "SR_002",
+      "http": 409,
+      "message": "Bộ học chưa có mục nào để ôn tập"
+    },
+    {
+      "code": "SR_003",
+      "http": 429,
+      "message": "Bạn đã ôn quá số thẻ cho phép trong ngày"
+    },
+    {
+      "code": "SRCH_001",
+      "http": 404,
+      "message": "Từ khoá tìm kiếm cần từ 2 đến 100 ký tự"
+    },
+    {
+      "code": "SRCH_002",
+      "http": 400,
+      "message": "Từ khoá có quá nhiều từ, hãy rút gọn"
+    },
+    {
+      "code": "SRCH_003",
+      "http": 400,
+      "message": "Phạm vi này không hỗ trợ tìm kiếm"
+    },
+    {
+      "code": "SRCH_004",
+      "http": 409,
+      "message": "Bạn đã lưu số tin nhắn tối đa, hãy bỏ lưu bớt"
+    },
+    {
+      "code": "SRCH_101",
+      "http": 400,
+      "message": "Từ khoá tìm kiếm phải từ 2 đến 100 ký tự"
+    },
+    {
+      "code": "SRCH_102",
+      "http": 404,
+      "message": "Không tìm thấy phạm vi tìm kiếm"
+    },
+    {
+      "code": "SRCH_103",
+      "http": 403,
+      "message": "Bạn không thể tìm thành viên trong nhóm này"
+    },
+    {
+      "code": "SRCH_104",
+      "http": 422,
+      "message": "Tìm kiếm quá rộng, hãy thêm bộ lọc hoặc thu hẹp thời gian"
+    },
+    {
+      "code": "STUDY_001",
+      "http": 400,
+      "message": "Một số mục học chưa hợp lệ, hãy kiểm tra lại từng mục"
+    },
+    {
+      "code": "STUDY_002",
+      "http": 409,
+      "message": "Bộ học đã đạt số mục tối đa"
+    },
+    {
+      "code": "STUDY_003",
+      "http": 400,
+      "message": "Bộ học dùng trong nhóm phải chọn nhóm"
+    },
+    {
+      "code": "STUDY_004",
+      "http": 409,
+      "message": "Bộ học đã bị ẩn"
+    },
+    {
+      "code": "STUDY_005",
+      "http": 400,
+      "message": "Đáp án đúng không nằm trong các lựa chọn"
+    },
+    {
+      "code": "STUDY_006",
+      "http": 400,
+      "message": "Ảnh hoặc âm thanh chưa sẵn sàng"
+    },
+    {
+      "code": "STUDY_007",
+      "http": 409,
+      "message": "Bạn đã đạt số bộ học tối đa"
+    },
+    {
+      "code": "STUDY_008",
+      "http": 400,
+      "message": "Cần xác nhận trước khi công khai bộ học"
+    },
+    {
+      "code": "SYS_500",
+      "message": "Lỗi hệ thống, vui lòng thử lại"
+    },
+    {
+      "code": "SYS_501",
+      "message": "Chức năng chưa được cấu hình"
+    },
+    {
+      "code": "SYS_502",
+      "message": "Dịch vụ phụ thuộc không phản hồi"
+    },
+    {
+      "code": "SYS_503",
+      "message": "Dịch vụ tạm thời không khả dụng"
+    },
+    {
+      "code": "TASK_001",
+      "http": 400,
+      "message": "Cột không tồn tại trên bảng này"
+    },
+    {
+      "code": "TASK_002",
+      "http": 409,
+      "message": "Thẻ chưa đủ điều kiện để hoàn thành"
+    },
+    {
+      "code": "TASK_003",
+      "http": 409,
+      "message": "Checklist đã đạt số mục tối đa"
+    },
+    {
+      "code": "TASK_004",
+      "http": 400,
+      "message": "Tệp đính kèm chưa sẵn sàng hoặc không hợp lệ"
+    },
+    {
+      "code": "TASK_005",
+      "http": 409,
+      "message": "Không thể tạo phụ thuộc vòng giữa các thẻ"
+    },
+    {
+      "code": "TASK_006",
+      "http": 409,
+      "message": "Đổi hạn này sẽ dời lịch các thẻ phía sau, vui lòng xác nhận"
+    },
+    {
+      "code": "TASK_007",
+      "http": 409,
+      "message": "Cột còn thẻ, hãy chuyển thẻ trước khi xoá cột"
+    },
+    {
+      "code": "TASK_008",
+      "http": 400,
+      "message": "Bảng phải có đúng một cột Hoàn thành và không đổi loại cột đang có thẻ"
+    },
+    {
+      "code": "TASK_009",
+      "http": 409,
+      "message": "Nhóm đã đạt số bảng tối đa"
+    },
+    {
+      "code": "TASK_010",
+      "http": 409,
+      "message": "Bảng đã đạt số thẻ tối đa"
+    },
+    {
+      "code": "TASK_011",
+      "http": 409,
+      "message": "Bảng đã đạt số nhãn tối đa"
+    },
+    {
+      "code": "TASK_012",
+      "http": 409,
+      "message": "Thẻ đã đạt số tệp đính kèm tối đa"
+    },
+    {
+      "code": "TASK_013",
+      "http": 400,
+      "message": "Ngày bắt đầu phải trước hạn chót"
+    },
+    {
+      "code": "TASK_014",
+      "http": 400,
+      "message": "Có người được nhắc tên không thuộc nhóm"
+    },
+    {
+      "code": "TASK_015",
+      "http": 409,
+      "message": "Đã quá thời gian cho phép sửa bình luận"
+    },
+    {
+      "code": "TASK_016",
+      "http": 410,
+      "message": "Thẻ đã xoá quá lâu, không thể khôi phục"
+    },
+    {
+      "code": "TASK_017",
+      "http": 400,
+      "message": "Phụ thuộc không hợp lệ: hai thẻ phải khác nhau, cùng bảng và chưa bị xoá"
+    },
+    {
+      "code": "TASK_018",
+      "http": 409,
+      "message": "Thẻ đã đạt số phụ thuộc tối đa"
+    },
+    {
+      "code": "TASK_019",
+      "http": 409,
+      "message": "Lịch các thẻ đã thay đổi, vui lòng xem lại trước khi dời"
+    },
+    {
+      "code": "TASK_020",
+      "http": 409,
+      "message": "Bảng đang có một lần dời lịch khác, vui lòng thử lại sau"
+    },
+    {
+      "code": "TASK_021",
+      "http": 409,
+      "message": "Chuỗi phụ thuộc quá lớn để xử lý"
+    },
+    {
+      "code": "TPL_001",
+      "http": 404,
+      "message": "Mẫu nhóm không tồn tại hoặc đã tắt"
+    },
+    {
+      "code": "TPL_002",
+      "http": 409,
+      "message": "Không thể áp mẫu cho nhóm đã lưu trữ"
+    },
+    {
+      "code": "TPL_003",
+      "http": 409,
+      "message": "Nhóm đã đạt số kênh tối đa"
+    },
+    {
+      "code": "USER_001",
+      "message": "Không tìm thấy người dùng"
+    },
+    {
+      "code": "USER_002",
+      "message": "Email này đã được sử dụng"
+    },
+    {
+      "code": "USER_003",
+      "message": "Dữ liệu người dùng không hợp lệ"
+    },
+    {
+      "code": "USER_010",
+      "message": "Bạn đang là chủ sở hữu nhóm, hãy chuyển quyền trước khi xoá tài khoản"
+    },
+    {
+      "code": "USER_011",
+      "message": "Tài khoản không ở trạng thái chờ xoá hoặc đã hết thời gian huỷ"
+    },
+    {
+      "code": "USER_012",
+      "message": "Chỉ quản trị viên cấp cao được ẩn danh ngay lập tức"
+    },
+    {
+      "code": "USER_013",
+      "message": "Email xác nhận không khớp"
+    },
+    {
+      "code": "USER_014",
+      "message": "Không thể tự xoá tài khoản của chính mình từ trang quản trị"
+    },
+    {
+      "code": "VAL_001",
+      "message": "Dữ liệu yêu cầu không hợp lệ"
+    },
+    {
+      "code": "WALLET_001",
+      "http": 400,
+      "message": "Người tham gia không thuộc nhóm"
+    },
+    {
+      "code": "WALLET_002",
+      "http": 400,
+      "message": "Tổng số tiền chia không khớp"
+    },
+    {
+      "code": "WALLET_003",
+      "http": 400,
+      "message": "Ảnh chưa sẵn sàng, vui lòng thử lại sau"
+    },
+    {
+      "code": "WALLET_004",
+      "http": 409,
+      "message": "Khoản chi đã có người thanh toán, hãy tạo khoản điều chỉnh"
+    },
+    {
+      "code": "WALLET_005",
+      "http": 400,
+      "message": "Số tiền vượt quá khoản nợ hiện tại"
+    },
+    {
+      "code": "WALLET_006",
+      "http": 400,
+      "message": "Không thể trả tiền cho chính mình"
+    },
+    {
+      "code": "WALLET_007",
+      "http": 409,
+      "message": "Giao dịch không còn ở trạng thái chờ xác nhận"
+    },
+    {
+      "code": "WALLET_008",
+      "http": 400,
+      "message": "Nơi nhận nhắc nợ không hợp lệ"
+    },
+    {
+      "code": "WALLET_009",
+      "http": 409,
+      "message": "Bạn đã có tối đa số tài khoản nhận tiền"
+    },
+    {
+      "code": "WALLET_010",
+      "http": 429,
+      "message": "Vừa nhắc nợ gần đây, thử lại sau"
+    },
+    {
+      "code": "WB_001",
+      "http": 409,
+      "message": "Nhóm đã đạt số bảng trắng tối đa"
+    },
+    {
+      "code": "WB_002",
+      "http": 400,
+      "message": "Ảnh thu nhỏ không hợp lệ"
+    },
+    {
+      "code": "WB_003",
+      "http": 400,
+      "message": "Người được mời không thuộc nhóm"
+    },
+    {
+      "code": "WB_004",
+      "http": 409,
+      "message": "Bảng trắng đã đủ số người cộng tác tối đa"
+    },
+    {
+      "code": "WB_005",
+      "http": 403,
+      "message": "Bảng trắng đã lưu trữ, chỉ xem được"
+    },
+    {
+      "code": "WB_006",
+      "http": 409,
+      "message": "Đã đạt số bản lưu thủ công tối đa"
+    },
+    {
+      "code": "WB_007",
+      "http": 413,
+      "message": "Bảng trắng vượt số phần tử hoặc dung lượng cho phép"
+    },
+    {
+      "code": "WB_008",
+      "http": 409,
+      "message": "Không thể lưu bảng trắng đã lưu trữ"
+    },
+    {
+      "code": "WELL_001",
+      "http": 409,
+      "message": "Bạn chưa bật theo dõi sức khoẻ học tập"
+    },
+    {
+      "code": "WELL_002",
+      "http": 403,
+      "message": "Chỉ chia sẻ được với nhóm bạn đang tham gia"
+    },
+    {
+      "code": "WELL_003",
+      "http": 400,
+      "message": "Cấu hình luật không hợp lệ"
+    },
+    {
+      "code": "WELL_004",
+      "http": 400,
+      "message": "Ngưỡng mức cao phải lớn hơn mức trung bình"
+    },
+    {
+      "code": "WS_001",
+      "http": 503,
+      "message": "Tên nhóm không hợp lệ"
+    },
+    {
+      "code": "WS_002",
+      "message": "Nhóm đã được lưu trữ, không thể thay đổi"
+    },
+    {
+      "code": "WS_003",
+      "message": "Người nhận không còn là thành viên đang hoạt động"
+    },
+    {
+      "code": "WS_004",
+      "message": "Chủ nhóm cần chuyển quyền sở hữu trước khi rời nhóm"
+    },
+    {
+      "code": "WS_005",
+      "message": "Tên xác nhận không khớp với người nhận"
+    },
+    {
+      "code": "WS_006",
+      "message": "Bạn đã tham gia số nhóm tối đa"
+    },
+    {
+      "code": "WS_007",
+      "message": "Nhóm đang hoạt động, không cần khôi phục"
+    },
+    {
+      "code": "WS_008",
+      "message": "Nhóm phải luôn có đúng một chủ sở hữu"
+    },
+    {
+      "code": "WS_009",
+      "message": "Nhóm bị lưu trữ bởi quản trị nền tảng, liên hệ hỗ trợ"
+    },
+    {
+      "code": "WS_010",
+      "message": "Không thể thay đổi vai trò chủ nhóm"
+    },
+    {
+      "code": "WS_011",
+      "message": "Bạn không đủ quyền thực hiện với thành viên này"
+    },
+    {
+      "code": "WS_012",
+      "message": "Không thể tự loại hoặc chặn chính mình"
+    },
+    {
+      "code": "WS_013",
+      "message": "Người này không còn là thành viên đang hoạt động"
+    },
+    {
+      "code": "WS_014",
+      "message": "Người này không bị chặn"
+    },
+    {
+      "code": "WS_015",
+      "message": "Không thể thu hồi chủ nhóm; hãy lưu trữ nhóm nếu cần"
+    },
+    {
+      "code": "WS_016",
+      "message": "Tên hiển thị không hợp lệ"
+    },
+    {
+      "code": "WS_017",
+      "message": "Yêu cầu tham gia đang chờ quản trị nhóm duyệt"
+    },
+    {
+      "code": "WS_018",
+      "http": 409,
+      "message": "Nhóm chưa bật mời khách hoặc đã đủ số khách"
+    },
+    {
+      "code": "WS_019",
+      "http": 429,
+      "message": "Bạn vừa bị từ chối, hãy thử lại sau"
+    }
+  ],
+  "source": "be/src/core/utils/error.codes.ts",
+  "version": "6323c922de766b67"
+}

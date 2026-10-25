@@ -1,0 +1,18 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["${APPLE_TEAM_ID}.com.mancode.vungnui"],
+        "components": [
+          { "/": "/invite/*", "comment": "Lời mời vào nhóm (kể cả /invite/e/{token})" },
+          { "/": "/m/*", "comment": "Hội thoại / mã họp" },
+          { "/": "/w/*", "comment": "Nhóm và kênh (/w/{wsId}/c/{chId})" },
+          { "/": "/c/*", "comment": "Tin nhắn (/c/{conversationId}?m=)" },
+          { "/": "/s/*", "comment": "Bộ học" },
+          { "/": "/live/*", "comment": "Vào phiên Live Quiz (/live/{pin})" },
+          { "/": "/mentor/*", "comment": "Bài tìm cố vấn" }
+        ]
+      }
+    ]
+  }
+}

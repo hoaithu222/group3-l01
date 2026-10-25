@@ -1,0 +1,72 @@
+name: ci
+on: { push: { branches: [main] }, pull_request: {} }
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+  changes:
+    runs-on: ubuntu-latest
+    outputs: { be: ${{ steps.f.outputs.be }}, admin: ${{ steps.f.outputs.admin }}, app: ${{ steps.f.outputs.app }}, collab: ${{ steps.f.outputs.collab }} }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: f
+        with: { filters: "be: ['be/**']\nadmin: ['admin/**']\napp: ['app/**']\ncollab: ['collab/**']" }
+  be:
+    needs: changes
+    if: needs.changes.outputs.be == 'true'
+    runs-on: ubuntu-latest
+    services: { redis: { image: redis:7-alpine, ports: ['6379:6379'] } }
+    defaults: { run: { working-directory: be } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: be/package-lock.json }
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build
+      - run: npm run lint
+      - run: npm test -- --runInBand
+        env: { TEST_DB: memory, REDIS_URL: redis://localhost:6379, NODE_ENV: test }
+  admin:
+    needs: changes
+    if: needs.changes.outputs.admin == 'true'
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: admin } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: admin/package-lock.json }
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+  app:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: app } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: app/package-lock.json }
+      - run: npm ci
+      - run: npm run check
+  collab:
+    needs: changes
+    if: needs.changes.outputs.collab == 'true'
+    runs-on: ubuntu-latest
+    services: { redis: { image: redis:7-alpine, ports: ['6379:6379'] } }
+    defaults: { run: { working-directory: collab } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: collab/package-lock.json }
+      - run: npm ci
+      - run: npm run build
+      - run: npm run lint
+      - run: npm test
+        env: { REDIS_URL: redis://localhost:6379 }

@@ -1,0 +1,103 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# LiveKit (SFU) + Egress + Redis riêng + nginx "edge" — p0-08 be.md §3 / p0-11.
+# KHUYẾN NGHỊ: chạy ở VM RIÊNG (CPU ≥ 4 vCPU, IP công khai; egress rất nặng CPU) — tách khỏi VM app (deploy/compose).
+#
+# Dùng (trên VM media, thư mục deploy/livekit):
+#   cp .env.example .env                 # điền tag ảnh (GHIM bản cụ thể), khoá, tên miền  (⛔ không commit)
+#   bash ../scripts/render-config.sh livekit          # sinh rendered/livekit.yaml + rendered/egress.yaml (chmod 600)
+#   bash ../scripts/issue-certs.sh <lk-domain> <turn-domain>   # cấp chứng chỉ Let's Encrypt cho lk. + turn.
+#   COMPOSE_PROFILES=edge docker compose up -d       # `edge` = nginx :443 (SNI: turn.* → TURN/TLS, còn lại → wss của LiveKit)
+# Staging ĐƠN-VM (không edge, không TURN/TLS 443): xem docker-compose.staging.override.yml của deploy/compose.
+#
+# Vì sao `network_mode: host`: LiveKit dùng dải UDP 50000–60000 (rtc.port_range) + TCP 7881 + TURN — publish từng cổng qua Docker NAT vừa chậm vừa dễ lỗi ICE.
+# Tên service KHÁC compose app (lk-redis…) để `include` từ staging override không đụng tên.
+# ─────────────────────────────────────────────────────────────────────────────
+name: superapp-livekit
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+services:
+  # Redis RIÊNG của LiveKit (routing + tín hiệu egress) — KHÔNG dùng chung Redis của app (mật khẩu app không đi qua VM media, và LiveKit ghi khoá tự do).
+  # Chỉ bind 127.0.0.1 (LiveKit/egress cùng host network truy cập được).
+  lk-redis:
+    image: redis:7.4-alpine
+    network_mode: host
+    command:
+      - redis-server
+      - --bind
+      - 127.0.0.1
+      - --port
+      - ${LK_REDIS_PORT:-6380}
+      - --requirepass
+      - ${LK_REDIS_PASSWORD:?đặt LK_REDIS_PASSWORD trong .env}
+      - --appendonly
+      - "no"
+    environment:
+      LK_REDIS_PASSWORD: ${LK_REDIS_PASSWORD}
+      LK_REDIS_PORT: ${LK_REDIS_PORT:-6380}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -h 127.0.0.1 -p \"$$LK_REDIS_PORT\" -a \"$$LK_REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    logging: *default-logging
+
+  livekit:
+    image: livekit/livekit-server:${LIVEKIT_TAG:?ghim LIVEKIT_TAG (vd v1.9.0) — không dùng latest}
+    network_mode: host
+    command: ["--config", "/etc/livekit.yaml"]
+    volumes:
+      - ./rendered/livekit.yaml:/etc/livekit.yaml:ro
+    depends_on:
+      lk-redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
+
+  egress:
+    image: livekit/egress:${EGRESS_TAG:?ghim EGRESS_TAG (vd v1.9.0) — không dùng latest}
+    network_mode: host
+    cap_add: ["SYS_ADMIN"] # Chrome headless (RoomComposite)
+    shm_size: "1gb"
+    environment:
+      EGRESS_CONFIG_FILE: /etc/egress.yaml
+    volumes:
+      - ./rendered/egress.yaml:/etc/egress.yaml:ro
+    # Egress rất nặng CPU: giới hạn để không nuốt LiveKit; đo lại ở spike MED-11 rồi chỉnh (hoặc tách VM riêng cho egress).
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 4g
+    depends_on:
+      livekit:
+        condition: service_started
+    restart: unless-stopped
+    logging: *default-logging
+
+  # nginx edge: :443 chia theo SNI — turn.<domain> → TURN/TLS (kết thúc TLS rồi chuyển TURN thuần tới LiveKit 5349, khớp `turn.external_tls: true`),
+  # lk.<domain> → wss của LiveKit (7880) — LiveKit quảng bá `turns:<turn-domain>:443` cho client nên 443 phải thuộc về edge.
+  edge:
+    profiles: ["edge"]
+    image: nginx:1.27-alpine
+    network_mode: host
+    environment:
+      LK_DOMAIN: ${LK_DOMAIN:?đặt LK_DOMAIN trong .env}
+      TURN_DOMAIN: ${TURN_DOMAIN:?đặt TURN_DOMAIN trong .env}
+      NGINX_ENVSUBST_FILTER: "_DOMAIN$$"
+      NGINX_ENVSUBST_OUTPUT_DIR: /etc/nginx/rendered
+    volumes:
+      - ./edge/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./edge/templates:/etc/nginx/templates:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    depends_on:
+      livekit:
+        condition: service_started
+    restart: unless-stopped
+    logging: *default-logging

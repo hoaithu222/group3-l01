@@ -1,0 +1,318 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Luật cảnh báo Prometheus (p0-11 README §7, be.md §5.5; nhóm `media` theo p2-07 be.md §9). Tên metric = ĐÚNG những gì BE đang phát
+# (be/src/infrastructure/metrics/*): http_request_duration_seconds, socket_connections, socket_adapter_up, queue_*, outbox_*, push_sent_total,
+# livekit_webhook_total, livekit_rooms_active, livekit_participants_active, livekit_api_errors_total, call_*, recording_*, turn_probe_* (worker).
+# Chú ý nhãn thật: recording_egress_total{status="started|complete|failed"} (chữ thường); call_setup_total{result} KHÔNG có "failed" — thiếu-thành-công tính bằng
+# call_end_total{reason="FAILED"}; queue_jobs_total{status} chỉ có ở worker; queue_waiting/outbox_pending nạp lại ở cả api và worker mỗi lần scrape.
+# Gắn `severity: critical|warning`: critical → Telegram + email, warning → Telegram (alertmanager.yml). `runbook` trỏ vào deploy/runbooks.
+# ⚠️ SocketDrop bị im lặng tự động 10 phút trong rolling deploy (scripts/rolling.sh → Alertmanager silence).
+# ─────────────────────────────────────────────────────────────────────────────
+groups:
+  - name: api
+    rules:
+      - alert: ApiInstanceDown
+        expr: up{job="api"} == 0
+        for: 2m
+        labels: { severity: critical, service: api }
+        annotations:
+          summary: "API {{ $labels.instance }} không scrape được"
+          description: "Prometheus không đọc được /metrics của {{ $labels.instance }} trong 2 phút (tiến trình chết, mạng, hoặc METRICS_TOKEN lệch)."
+          runbook: "deploy/runbooks/incident.md#api-không-phản-hồi"
+
+      - alert: ApiAllDown
+        expr: sum(up{job="api"}) == 0 or absent(up{job="api"})
+        for: 1m
+        labels: { severity: critical, service: api }
+        annotations:
+          summary: "Toàn bộ API ngừng phản hồi"
+          description: "Không còn replica api nào up — người dùng không đăng nhập/gọi API được."
+          runbook: "deploy/runbooks/incident.md#api-không-phản-hồi"
+
+      - alert: ApiHigh5xx
+        expr: |
+          (
+            sum(rate(http_request_duration_seconds_count{job="api",status=~"5.."}[5m]))
+            / sum(rate(http_request_duration_seconds_count{job="api"}[5m]))
+          ) > 0.01
+          and sum(rate(http_request_duration_seconds_count{job="api"}[5m])) > 0.1
+        for: 5m
+        labels: { severity: critical, service: api }
+        annotations:
+          summary: "Tỉ lệ 5xx của API > 1% trong 5 phút"
+          description: "5xx = {{ $value | humanizePercentage }} (bỏ qua khi lưu lượng < 0,1 req/s). Kiểm Sentry theo requestId, Grafana 'Super App — API', log."
+          runbook: "deploy/runbooks/incident.md#5xx-tăng"
+
+      - alert: ApiHighLatency
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="api"}[5m]))) > 1
+        for: 10m
+        labels: { severity: warning, service: api }
+        annotations:
+          summary: "p95 độ trễ API > 1 s trong 10 phút"
+          description: "p95 hiện {{ $value | humanizeDuration }}. Kiểm route chậm (dashboard API), event loop lag, DB Atlas, Redis."
+          runbook: "deploy/runbooks/incident.md#độ-trễ-cao"
+
+  - name: worker
+    rules:
+      - alert: WorkerDown
+        expr: up{job="worker"} == 0 or absent(up{job="worker"})
+        for: 2m
+        labels: { severity: critical, service: worker }
+        annotations:
+          summary: "Worker không phản hồi"
+          description: "Không đọc được worker:9464/metrics 2 phút — job (push, thông báo, cron, outbox) không được xử lý."
+          runbook: "deploy/runbooks/incident.md#worker--hàng-đợi"
+
+      - alert: QueueBacklog
+        expr: max by (queue) (queue_waiting{job=~"api|worker"}) > 1000
+        for: 5m
+        labels: { severity: warning, service: worker }
+        annotations:
+          summary: "Queue {{ $labels.queue }} tồn {{ $value }} job > 5 phút"
+          description: "Worker chậm hoặc dừng (OPS-05). Ghi chú: chưa có metric tuổi job cũ nhất — dùng số job chờ."
+          runbook: "deploy/runbooks/incident.md#worker--hàng-đợi"
+
+      - alert: QueueJobsFailing
+        expr: sum by (queue) (increase(queue_jobs_total{job="worker",status="failed"}[15m])) > 10
+        for: 5m
+        labels: { severity: warning, service: worker }
+        annotations:
+          summary: "Queue {{ $labels.queue }} có > 10 job lỗi trong 15 phút"
+          description: "Xem Sentry (lỗi job cuối cùng có tag queue/job/jobId) và admin → Jobs → failed."
+          runbook: "deploy/runbooks/incident.md#worker--hàng-đợi"
+
+      - alert: OutboxBacklog
+        expr: max(outbox_pending{job=~"api|worker"}) > 500
+        for: 10m
+        labels: { severity: warning, service: worker }
+        annotations:
+          summary: "Outbox tồn {{ $value }} sự kiện > 10 phút"
+          description: "Relay outbox chậm/dừng: thông báo, fan-out tin, hẹn giờ trễ. Kiểm worker + Redis."
+          runbook: "deploy/runbooks/incident.md#worker--hàng-đợi"
+
+      - alert: OutboxFailed
+        expr: increase(outbox_failed_total{job="worker"}[15m]) > 0
+        for: 0m
+        labels: { severity: warning, service: worker }
+        annotations:
+          summary: "Có OutboxEvent chuyển FAILED (hết số lần thử)"
+          description: "{{ $value }} sự kiện FAILED trong 15 phút — việc sau-commit bị bỏ lại; xem admin → Jobs / log worker."
+          runbook: "deploy/runbooks/incident.md#worker--hàng-đợi"
+
+  - name: socket
+    rules:
+      - alert: SocketDrop
+        expr: |
+          sum(socket_connections{job="api"}) < 0.7 * sum(socket_connections{job="api"} offset 2m)
+          and sum(socket_connections{job="api"} offset 2m) > 20
+        for: 1m
+        labels: { severity: warning, service: api }
+        annotations:
+          summary: "Số kết nối socket giảm > 30% trong 2 phút"
+          description: "{{ $value }} kết nối còn lại. Ngoài cửa sổ deploy → có thể một replica chết hoặc nginx/mạng lỗi (OPS-13)."
+          runbook: "deploy/runbooks/incident.md#socket-rớt-hàng-loạt"
+
+      - alert: SocketAdapterDown
+        expr: min(socket_adapter_up{job="api"}) == 0
+        for: 5m
+        labels: { severity: critical, service: api }
+        annotations:
+          summary: "Socket.IO Redis adapter không hoạt động"
+          description: "Chạy 2 replica mà thiếu adapter → sự kiện realtime chỉ tới socket cùng replica. Kiểm Redis và log 'Redis Adapter'."
+          runbook: "deploy/runbooks/incident.md#socket-rớt-hàng-loạt"
+
+  - name: push
+    rules:
+      - alert: PushFailureHigh
+        expr: |
+          sum(rate(push_sent_total{job="worker",status="failed"}[15m]))
+          / sum(rate(push_sent_total{job="worker",status=~"sent|failed"}[15m])) > 0.10
+          and sum(rate(push_sent_total{job="worker",status=~"sent|failed"}[15m])) > 0.005
+        for: 15m
+        labels: { severity: warning, service: worker }
+        annotations:
+          summary: "Tỉ lệ push lỗi > 10% trong 15 phút"
+          description: "push lỗi = {{ $value | humanizePercentage }}. Thường do khoá FCM/APNs hết hạn hoặc bị thu hồi."
+          runbook: "deploy/runbooks/push-keys.md"
+
+  - name: media
+    rules:
+      - alert: LiveKitWebhookInvalid
+        expr: increase(livekit_webhook_total{job="api",result="invalid"}[10m]) > 0
+        for: 0m
+        labels: { severity: warning, service: api }
+        annotations:
+          summary: "Webhook LiveKit sai chữ ký"
+          description: "Secret LiveKit lệch giữa BE và LiveKit, nginx sửa body (webhook phải raw), hoặc có kẻ giả webhook (OPS-09)."
+          runbook: "deploy/runbooks/livekit.md#webhook-sai-chữ-ký"
+
+      - alert: LiveKitApiErrors
+        expr: sum by (op) (increase(livekit_api_errors_total{job=~"api|worker"}[10m])) > 5
+        for: 5m
+        labels: { severity: warning, service: api }
+        annotations:
+          summary: "Lỗi gọi API LiveKit ({{ $labels.op }}) tăng"
+          description: "{{ $value }} lỗi trong 10 phút — LiveKit không tới được, sai khoá, hoặc quá tải."
+          runbook: "deploy/runbooks/livekit.md#lỗi-api-livekit"
+
+      - alert: LiveKitWebhookFailed
+        expr: sum(increase(livekit_webhook_total{job=~"api|worker",result=~"failed|error"}[15m])) > 3
+        for: 5m
+        labels: { severity: warning, service: worker }
+        annotations:
+          summary: "Xử lý webhook LiveKit lỗi lặp lại"
+          description: "{{ $value }} webhook lỗi trong 15 phút (result=failed|error) — xem WebhookEvent FAILED và log job livekit.event."
+          runbook: "deploy/runbooks/livekit.md#webhook-lỗi-xử-lý"
+
+      - alert: LiveKitWebhookSilent
+        expr: |
+          max(livekit_rooms_active{job="api"}) > 0
+          and on() ((sum(increase(livekit_webhook_total{job="api"}[5m])) or vector(0)) == 0)
+        for: 5m
+        labels: { severity: warning, service: api }
+        annotations:
+          summary: "Có phòng đang mở nhưng không nhận webhook LiveKit 5 phút"
+          description: "webhook.urls trong livekit.yaml sai, LiveKit không gọi được BE, hoặc nginx chặn."
+          runbook: "deploy/runbooks/livekit.md#webhook-sai-chữ-ký"
+
+      - alert: LiveKitDown
+        expr: up{job="livekit"} == 0
+        for: 2m
+        labels: { severity: critical, service: livekit }
+        annotations:
+          summary: "LiveKit server không scrape được"
+          description: "Cổng prometheus_port 6789 của {{ $labels.instance }} không phản hồi 2 phút (server chết hoặc firewall)."
+          runbook: "deploy/runbooks/livekit.md#livekit-không-chạy"
+
+      - alert: CallSetupFailureHigh
+        expr: |
+          (
+            sum(increase(call_end_total{job=~"api|worker",reason="FAILED"}[15m]))
+            / clamp_min(sum(increase(call_setup_total{job=~"api|worker",result="created"}[15m])), 1)
+          ) > 0.05
+          and sum(increase(call_setup_total{job=~"api|worker",result="created"}[15m])) >= 10
+        for: 15m
+        labels: { severity: warning, service: worker }
+        annotations:
+          summary: "Cuộc gọi kết thúc FAILED > 5% số cuộc tạo mới"
+          description: "Tỉ lệ = {{ $value | humanizePercentage }} (cần ≥ 10 cuộc trong 15 phút). Nghi ngờ LiveKit/TURN/mạng — xem dashboard 'Cuộc gọi & họp'."
+          runbook: "deploy/runbooks/livekit.md#cuộc-gọi-thất-bại-nhiều"
+
+      - alert: RecordingEgressFailed
+        expr: sum(increase(recording_egress_total{job=~"api|worker",status="failed"}[24h])) > 3
+        for: 0m
+        labels: { severity: warning, service: worker }
+        annotations:
+          summary: "Egress ghi hình họp lỗi > 3 lần trong 24 giờ"
+          description: "Kiểm CPU VM egress, quyền/đủ chỗ S3, log container egress."
+          runbook: "deploy/runbooks/livekit.md#egress-ghi-hình-lỗi"
+
+      - alert: RecordingStorageHigh
+        # Ngưỡng cảnh báo dung lượng ghi hình (byte) — p2-07: khai ở đây. 100 GiB; chỉnh theo hạn mức bucket/chi phí.
+        expr: max(recording_storage_bytes{job=~"api|worker"}) > 107374182400
+        for: 30m
+        labels: { severity: warning, service: worker }
+        annotations:
+          summary: "Dung lượng bản ghi hình họp > 100 GiB"
+          description: "Hiện {{ $value | humanize1024 }}B. Kiểm chính sách lưu giữ (retention) hoặc nới hạn mức."
+          runbook: "deploy/runbooks/livekit.md#egress-ghi-hình-lỗi"
+
+      # ── TURN (job media.turn-probe, worker) — metric chỉ có khi TURN_PROBE_HOST được đặt ──
+      - alert: TurnProbeDown
+        expr: max by (transport) (turn_probe_up{job="worker"}) == 0
+        for: 10m
+        labels: { severity: critical, service: livekit }
+        annotations:
+          summary: "TURN {{ $labels.transport }} thăm dò thất bại > 10 phút"
+          description: "udp = STUN Binding 3478; tls = bắt tay TLS/chứng chỉ ở 443. Mạng chặn UDP sẽ không gọi được nếu TURN/TLS hỏng (D-24)."
+          runbook: "deploy/runbooks/livekit.md#turn-thất-bại"
+
+      - alert: TurnProbeStale
+        expr: time() - max(turn_probe_last_run_timestamp_seconds{job="worker"}) > 900
+        for: 5m
+        labels: { severity: warning, service: worker }
+        annotations:
+          summary: "Cron media.turn-probe không chạy > 15 phút"
+          description: "Worker dừng hoặc scheduler mất — TURN đang không được giám sát."
+          runbook: "deploy/runbooks/livekit.md#turn-thất-bại"
+
+      - alert: TurnCertExpiringSoon
+        expr: min(turn_probe_cert_expiry_seconds{job="worker"}) < 14 * 86400
+        for: 1h
+        labels: { severity: warning, service: livekit }
+        annotations:
+          summary: "Chứng chỉ TLS của TURN còn < 14 ngày"
+          description: "Còn {{ $value | humanizeDuration }}. Kiểm certbot renew + reload nginx edge (deploy/livekit)."
+          runbook: "deploy/runbooks/livekit.md#gia-hạn-chứng-chỉ"
+
+  - name: infra
+    rules:
+      - alert: ProbeFailed
+        expr: probe_success{job="blackbox-http"} == 0
+        for: 3m
+        labels: { severity: critical, service: edge }
+        annotations:
+          summary: "Thăm dò ngoài thất bại: {{ $labels.instance }}"
+          description: "URL không trả 200 (kể cả qua nginx/TLS) trong 3 phút. Nếu chỉ /api/health lỗi: xem services.* trong response."
+          runbook: "deploy/runbooks/incident.md#api-không-phản-hồi"
+
+      - alert: CertExpiringSoon
+        expr: (probe_ssl_earliest_cert_expiry{job=~"blackbox-.*"} - time()) < 14 * 86400
+        for: 1h
+        labels: { severity: warning, service: edge }
+        annotations:
+          summary: "Chứng chỉ TLS của {{ $labels.instance }} còn < 14 ngày"
+          description: "Còn {{ $value | humanizeDuration }}. Chạy scripts/issue-certs.sh hoặc kiểm certbot renew (deploy/README.md §TLS)."
+          runbook: "deploy/README.md#tls-chứng-chỉ"
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels: { severity: critical, service: redis }
+        annotations:
+          summary: "Redis không phản hồi"
+          description: "Socket adapter, BullMQ, rate limit, cache đều phụ thuộc Redis — API sẽ báo 503 ở /api/health."
+          runbook: "deploy/runbooks/incident.md#redis"
+
+      - alert: RedisMemoryHigh
+        expr: (redis_memory_used_bytes / redis_memory_max_bytes) > 0.8 and redis_memory_max_bytes > 0
+        for: 10m
+        labels: { severity: warning, service: redis }
+        annotations:
+          summary: "Redis dùng > 80% bộ nhớ tối đa"
+          description: "{{ $value | humanizePercentage }} của maxmemory (policy noeviction — đầy là ghi thất bại). Tăng REDIS_MAXMEMORY hoặc dọn queue tồn."
+          runbook: "deploy/runbooks/incident.md#redis"
+
+      - alert: HostCpuHigh
+        expr: 100 - (avg(rate(node_cpu_seconds_total{job="node",mode="idle"}[5m])) * 100) > 85
+        for: 15m
+        labels: { severity: warning, service: host }
+        annotations:
+          summary: "CPU máy chủ > 85% trong 15 phút"
+          description: "Hiện {{ $value | printf \"%.0f\" }}%. Cân nhắc nâng cấp VM hoặc tách LiveKit/egress sang VM riêng."
+          runbook: "deploy/runbooks/incident.md#tài-nguyên-máy-chủ"
+
+      - alert: HostMemoryLow
+        expr: (node_memory_MemAvailable_bytes{job="node"} / node_memory_MemTotal_bytes{job="node"}) < 0.10
+        for: 10m
+        labels: { severity: warning, service: host }
+        annotations:
+          summary: "Bộ nhớ khả dụng của máy chủ < 10%"
+          description: "Còn {{ $value | humanizePercentage }}. Nguy cơ OOM kill container."
+          runbook: "deploy/runbooks/incident.md#tài-nguyên-máy-chủ"
+
+      - alert: HostDiskLow
+        expr: (node_filesystem_avail_bytes{job="node",fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/(run|dev|sys|proc).*"} / node_filesystem_size_bytes{job="node",fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/(run|dev|sys|proc).*"}) < 0.10
+        for: 15m
+        labels: { severity: warning, service: host }
+        annotations:
+          summary: "Ổ đĩa {{ $labels.mountpoint }} còn < 10%"
+          description: "Còn {{ $value | humanizePercentage }}. Dọn ảnh Docker cũ (docker image prune), log, dữ liệu Loki/Prometheus."
+          runbook: "deploy/runbooks/incident.md#tài-nguyên-máy-chủ"
+
+      # Atlas CPU > 80% (README §7): cách chắc chắn nhất là Atlas Alerts gốc (không cần exporter) — runbook restore-db.md §Cảnh báo Atlas.
+      # Có bật job `atlas` trong prometheus.yml thì bỏ chú thích rule dưới (KIỂM tên metric theo tài liệu Atlas Prometheus Integration trước):
+      # - alert: AtlasCpuHigh
+      #   expr: max(mongodb_system_normalized_cpu_user + mongodb_system_normalized_cpu_kernel) > 80
+      #   for: 15m
+      #   labels: { severity: warning, service: mongodb }
+      #   annotations: { summary: "CPU cluster Atlas > 80%", runbook: "deploy/runbooks/restore-db.md" }

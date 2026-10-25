@@ -1,0 +1,132 @@
+{
+  "_doc": [
+    "Fixture CHIA TIỀN dùng chung app ↔ BE (p6-04). Cùng quy tắc làm tròn: EQUAL floor(amount/n) mỗi người (n gồm cả người trả nếu có trong danh sách); PERCENT floor(amount*bps/10000); CUSTOM đúng số tiền; người trả không sinh nợ, phần dư làm tròn do NGƯỜI TRẢ chịu.",
+    "App test: src/features/wallet/tests/split-preview.test.ts. BE: be/src/modules/wallet/domain/wallet-math.ts#splitExpense — BE nên đọc CHÍNH file này (hoặc bản sao ở contracts/fixtures/wallet-split.json) trong wallet-math.test.ts. Các ca IR-03 / IR-31 khớp be/src/modules/wallet/tests/domain/wallet-math.test.ts (đã đối chiếu tay: 150000/4 gồm người trả → 3 x 37500; 100000/3 không gồm người trả → 33333 x 3, người trả được nợ 99999; 100003/4 → 25000 x 3, người trả gánh 25003).",
+    "expected.debts: nợ THẬT sinh ra (bỏ người trả, bỏ phần 0, sắp theo debtorId). expected.creditorOwed: tổng nợ người trả được nhận = Σ debts. expected.payerBears: amount - creditorOwed (phần của chính người trả + phần lẻ). expected.remainder: amount - Σ phần từng người theo quy tắc (0 với CUSTOM)."
+  ],
+  "cases": [
+    {
+      "name": "IR-03: 150.000 chia đều 4 người (gồm người trả A) → 3 x 37.500, người trả không nợ",
+      "amount": 150000,
+      "splitType": "EQUAL",
+      "paidBy": "A",
+      "participants": [{ "userId": "A" }, { "userId": "B" }, { "userId": "C" }, { "userId": "D" }],
+      "expected": {
+        "debts": [
+          { "debtorId": "B", "amount": 37500 },
+          { "debtorId": "C", "amount": 37500 },
+          { "debtorId": "D", "amount": 37500 }
+        ],
+        "creditorOwed": 112500,
+        "payerBears": 37500,
+        "remainder": 0
+      }
+    },
+    {
+      "name": "IR-03 lẻ: 100.003 chia đều 4 người (gồm người trả) → 3 x 25.000, người trả gánh 25.003",
+      "amount": 100003,
+      "splitType": "EQUAL",
+      "paidBy": "A",
+      "participants": [{ "userId": "A" }, { "userId": "B" }, { "userId": "C" }, { "userId": "D" }],
+      "expected": {
+        "debts": [
+          { "debtorId": "B", "amount": 25000 },
+          { "debtorId": "C", "amount": 25000 },
+          { "debtorId": "D", "amount": 25000 }
+        ],
+        "creditorOwed": 75000,
+        "payerBears": 25003,
+        "remainder": 3
+      }
+    },
+    {
+      "name": "IR-31: 100.000 chia đều 3 người KHÔNG gồm người trả → 3 x 33.333, người trả được nợ 99.999",
+      "amount": 100000,
+      "splitType": "EQUAL",
+      "paidBy": "A",
+      "participants": [{ "userId": "B" }, { "userId": "C" }, { "userId": "D" }],
+      "expected": {
+        "debts": [
+          { "debtorId": "B", "amount": 33333 },
+          { "debtorId": "C", "amount": 33333 },
+          { "debtorId": "D", "amount": 33333 }
+        ],
+        "creditorOwed": 99999,
+        "payerBears": 1,
+        "remainder": 1
+      }
+    },
+    {
+      "name": "amount nhỏ hơn số người: 2 chia 3 → không sinh nợ, người trả gánh hết",
+      "amount": 2,
+      "splitType": "EQUAL",
+      "paidBy": "A",
+      "participants": [{ "userId": "B" }, { "userId": "C" }, { "userId": "D" }],
+      "expected": { "debts": [], "creditorOwed": 0, "payerBears": 2, "remainder": 2 }
+    },
+    {
+      "name": "Chỉ mình người trả trong danh sách → không nợ ai",
+      "amount": 10000,
+      "splitType": "EQUAL",
+      "paidBy": "A",
+      "participants": [{ "userId": "A" }],
+      "expected": { "debts": [], "creditorOwed": 0, "payerBears": 10000, "remainder": 0 }
+    },
+    {
+      "name": "PERCENT: 100.001 — A(người trả) 50%, B 33,33%, C 16,67% → floor theo bps, dư 1 do người trả chịu",
+      "amount": 100001,
+      "splitType": "PERCENT",
+      "paidBy": "A",
+      "participants": [
+        { "userId": "A", "bps": 5000 },
+        { "userId": "B", "bps": 3333 },
+        { "userId": "C", "bps": 1667 }
+      ],
+      "expected": {
+        "debts": [
+          { "debtorId": "B", "amount": 33330 },
+          { "debtorId": "C", "amount": 16670 }
+        ],
+        "creditorOwed": 50000,
+        "payerBears": 50001,
+        "remainder": 1
+      }
+    },
+    {
+      "name": "CUSTOM: 90.000 — A(người trả) 30.000, B 60.000, C 0 → bỏ phần 0 và phần người trả",
+      "amount": 90000,
+      "splitType": "CUSTOM",
+      "paidBy": "A",
+      "participants": [
+        { "userId": "A", "amount": 30000 },
+        { "userId": "B", "amount": 60000 },
+        { "userId": "C", "amount": 0 }
+      ],
+      "expected": {
+        "debts": [{ "debtorId": "B", "amount": 60000 }],
+        "creditorOwed": 60000,
+        "payerBears": 30000,
+        "remainder": 0
+      }
+    },
+    {
+      "name": "CUSTOM: người trả không tham gia → được nợ đủ tổng",
+      "amount": 50000,
+      "splitType": "CUSTOM",
+      "paidBy": "A",
+      "participants": [
+        { "userId": "B", "amount": 20000 },
+        { "userId": "C", "amount": 30000 }
+      ],
+      "expected": {
+        "debts": [
+          { "debtorId": "B", "amount": 20000 },
+          { "debtorId": "C", "amount": 30000 }
+        ],
+        "creditorOwed": 50000,
+        "payerBears": 0,
+        "remainder": 0
+      }
+    }
+  ]
+}

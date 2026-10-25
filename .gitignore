@@ -1,0 +1,14 @@
+# Gốc repo không có .gitignore trước đây — file này chỉ chặn secret/rác lỡ tải
+# về THẲNG gốc repo (từng package con đã có .gitignore riêng, đầy đủ hơn).
+
+# Credential tải từ Google/Firebase/Apple về gốc repo (client_secret_*.json,
+# service-account, khoá APNs .p8/.pem) — không được commit.
+/client_secret*.json
+/*-firebase-adminsdk-*.json
+/serviceAccountKey*.json
+/*.p8
+/*.pem
+/.env
+/.env.*.local
+
+.DS_Store

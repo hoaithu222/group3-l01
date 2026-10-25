@@ -1,0 +1,964 @@
+/* =============================================================================
+   globals.css — single source of truth for all CSS.
+   Import order matters for Tailwind v4:
+     1. tailwindcss   — preflight + utilities (no separate imports needed)
+     2. design tokens — generated from colors-theme.json
+     3. fonts         — generated from font.json
+     4. base layer    — box-model reset + root vars + typography defaults
+   DO NOT add shadcn HSL variables here; use --color-* design tokens instead.
+
+   `source(none)` disables Tailwind v4 auto-scan (which would traverse the
+   whole repo including .claude/, plans/, docs/ — bloating CSS output and
+   picking up literal strings like `[file:line]` as arbitrary classes). We
+   then whitelist only the actual source dirs below.
+   ============================================================================= */
+
+@import 'tailwindcss' source(none);
+@source '../../index.html';
+@source '../**/*.{ts,tsx}';
+@import './theme/generated-colors.css';
+@import './font/generated-font.css';
+
+/* =============================================================================
+   Animation tokens — Tailwind v4 @theme directive maps `--animate-*` vars to
+   `animate-*` utilities. Keyframes are declared below. Used by `Drawer`,
+   future side panels, and any data-[state=open] transition.
+   ============================================================================= */
+@theme {
+  /* Extra-wide desktop breakpoint used by dense toolbars. */
+  --breakpoint-3xl: 120rem;
+
+  /* ---------------------------------------------------------------------
+     `wide` = 1800px — mốc "MÀN NGOÀI" (24" FHD trở lên) vs "LAPTOP".
+     Vì sao 1800 chứ không phải 1920 (`3xl`):
+       • Laptop 14" FHD @125%  → 1536px CSS   → dưới mốc → dùng cỡ gọn
+       • Laptop 14" MacBook     → 1512px CSS   → dưới mốc
+       • Laptop 16" MacBook     → 1728px CSS   → dưới mốc → vẫn cỡ gọn
+       • Màn ngoài 24" FHD      → ~1903–1910px → TRÊN mốc → cỡ gốc
+     Mốc 1920 (`3xl`) KHÔNG dùng được cho việc này: màn 24" FHD thực tế chỉ cho
+     viewport ~1910px (viền cửa sổ + làm tròn DPI) nên `3xl` không bao giờ khớp
+     → header bị khoá ở cỡ gọn và chữ trông bé một cách vô lý.
+     --------------------------------------------------------------------- */
+  --breakpoint-wide: 112.5rem;
+
+  --animate-fade-in: fade-in 180ms ease-out;
+  --animate-fade-out: fade-out 150ms ease-in;
+  --animate-slide-in-right: slide-in-right 220ms ease-out;
+  --animate-slide-out-right: slide-out-right 180ms ease-in;
+  --animate-slide-in-left: slide-in-left 220ms ease-out;
+  --animate-slide-out-left: slide-out-left 180ms ease-in;
+  --animate-slide-in-top: slide-in-top 220ms ease-out;
+  --animate-slide-out-top: slide-out-top 180ms ease-in;
+  --animate-slide-in-bottom: slide-in-bottom 220ms ease-out;
+  --animate-slide-out-bottom: slide-out-bottom 180ms ease-in;
+  /* Thanh ngang mọc từ trái → phải khi mount (bar row chart). Kết hợp origin-left. */
+  --animate-grow-x: grow-x 650ms ease-out both;
+  /* Vệt sáng quét ngang 1 lần qua thanh tiến độ khi hover dòng. Chỉ chạy trên
+     hover nên không tạo chuyển động nền liên tục làm rối bảng dữ liệu. */
+  --animate-progress-shine: progress-shine 900ms ease;
+  /* Equalizer "đang nói" — 1 vạch nảy lên-xuống (scaleY). Dùng cho indicator
+     người đang phát biểu trong panel participants (style Google Meet). Ghép với
+     origin-bottom + stagger delay giữa các vạch để ra hiệu ứng sóng âm. */
+  --animate-speaking-bar: speaking-bar 900ms ease-in-out infinite;
+  /* Radar quanh nút hành động đang chờ người dùng bấm (nút "Lưu kế hoạch" khi bảng
+     còn thay đổi chưa ghi): vòng sáng nở ra rồi tan.
+     Muốn "mạnh" thì tăng ĐỘ TƯƠNG PHẢN + NHỊP, đừng tăng biên độ: nút nằm trong
+     thanh công cụ dày đặc, nở rộng là vòng tràn qua cụm icon bên cạnh và cảnh báo
+     biến thành thứ gây nhiễu. Vì vậy giữ scale 1.22, đẩy opacity lên 0.9 và rút
+     nhịp còn 1.6s. Treo lên phần tử RIÊNG, đừng đặt lên chính cái nút: opacity
+     chạy tới 0 sẽ nuốt luôn nhãn chữ. */
+  --animate-radar-ring: radar-ring 1.6s ease-out infinite;
+  /* Chip câu hỏi gợi ý của trợ lý ùa vào khi người dùng đổi phân hệ PMS.
+     Biên độ CỐ Ý nhỏ (6px): danh sách chip đổi nội dung là một thay đổi nhẹ ở
+     góc màn hình, không phải một màn hình mới — trượt xa hơn thì nó cướp sự chú
+     ý khỏi chính công việc người ta đang làm ở giữa màn. `both` giữ khung hình
+     đầu để chip không loé lên đúng chỗ rồi mới lùi xuống chạy lại. */
+  --animate-chip-in: chip-in 240ms ease-out both;
+  /* Vệt sáng CHẠY DỌC MÉP TRÊN của khung panel (`HudFrame intensity="prime"`).
+     Nhịp CỐ Ý chậm (5.5s) và vệt CỐ Ý mảnh: đây là chuyển động NỀN, chạy suốt
+     thời gian panel còn trên màn. Nhanh hơn hoặc dày hơn thì mắt bị kéo về mép
+     khung thay vì về SỐ LIỆU trong khung — đúng thứ màn điều hành không được
+     phép làm. Nơi dùng phải kèm `motion-reduce:animate-none`. */
+  --animate-hud-sweep: hud-sweep 5.5s linear infinite;
+
+  /* ---------------------------------------------------------------------
+     MÀN XÁC THỰC (`features/auth`) — 2 chuyển động của nền "trang vở".
+
+     Cả hai chạy vô hạn nên CỐ Ý chậm, biên độ nhỏ, và chỉ đổi `opacity` /
+     `scale` (không đụng bố cục): màn đăng nhập chỉ có một việc để làm (gõ
+     email + mật khẩu), thứ gì nhấp nháy nhanh là kéo mắt khỏi đúng hai ô đó.
+     Nơi dùng PHẢI kèm `motion-reduce:animate-none`.
+     --------------------------------------------------------------------- */
+
+  /* Sao XP ở dải lề của nền nhấp nháy — mỗi sao lệch pha bằng
+     `animation-delay` âm nên không bao giờ cùng sáng một lúc. */
+  --animate-auth-twinkle: auth-twinkle 5.5s ease-in-out infinite;
+  /* Quầng sau nút "đang học" của hình lộ trình thở chậm. */
+  --animate-auth-pulse: auth-pulse 3.6s ease-in-out infinite;
+}
+
+/*
+ * Thanh tiến độ chạy từ 0 → giá trị thật khi vừa hiện.
+ *
+ * Đặt ở globals vì HAI màn dùng: panel "Khối lượng hạng mục" (Tổng quan dự án) và
+ * danh sách loại hạng mục (Thống kê nghiệm thu). Trước đây keyframe chỉ được bơm
+ * runtime bởi `OverviewKeyframes` của riêng Tổng quan, nên màn khác tham chiếu tên
+ * này thì trình duyệt bỏ qua — thanh đứng im mà không có gì báo.
+ */
+@keyframes pvBarGrow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/*
+ * Sóng mặt nước của `<LiquidGauge>` — dịch ngang liên tục.
+ *
+ * `-50%` chứ KHÔNG phải một số px: đường sóng được vẽ rộng gấp ĐÔI khung
+ * (0 → 2×size) và gồm 4 chu kỳ giống hệt nhau, nên dịch đúng nửa bề ngang của
+ * chính nó là rơi trúng biên chu kỳ — mắt không thấy điểm nối. Dùng px thì mỗi
+ * cỡ gauge lại cần một keyframe riêng.
+ *
+ * Trong SVG, phần trăm của `transform` quy chiếu theo hộp bao của chính phần
+ * tử, nên công thức này đúng với mọi `size`.
+ */
+@keyframes liquid-wave {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes slide-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes slide-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes slide-in-top {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes slide-out-top {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-100%);
+  }
+}
+@keyframes slide-in-bottom {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes slide-out-bottom {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes progress-shine {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes speaking-bar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+@keyframes radar-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  75% {
+    opacity: 0;
+    transform: scale(1.22);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.22);
+  }
+}
+
+/*
+ * Vệt sáng quét mép trên khung `HudFrame intensity="prime"`.
+ *
+ * Chạy bằng `translateX` phần trăm (KHÔNG phải `left`): `transform` được
+ * compositor xử lý nên không sinh reflow mỗi khung hình — màn dashboard hay có
+ * 6-8 panel cùng chạy, làm bằng `left` là cả trang giật.
+ *
+ * Vệt tắt hẳn ở hai đầu (`opacity` 0 tại 0% và 100%) để lúc nhảy vòng lại
+ * không thấy nó "biến mất giữa đường".
+ */
+@keyframes hud-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* =============================================================================
+   MÀN XÁC THỰC — keyframes. Xem token `--animate-auth-*` ở @theme.
+   ============================================================================= */
+
+/* Biên độ CỐ Ý hẹp (.30 → .62): đây là hạt nền, không phải chỉ báo trạng thái. */
+@keyframes auth-twinkle {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.62;
+  }
+}
+
+/* Thuộc tính `scale` RIÊNG, không `transform: scale()`: quầng được canh tâm bằng
+   `-translate-*-1/2` của Tailwind v4 — mà v4 viết vào thuộc tính `translate`.
+   Viết `transform` ở đây vẫn cộng dồn được, nhưng đọc như thể nó đè mất phép
+   canh tâm; `scale` riêng thì rõ ràng là hai thứ độc lập. */
+@keyframes auth-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    scale: 0.86;
+  }
+  50% {
+    opacity: 0.95;
+    scale: 1.08;
+  }
+}
+
+/* Tailwind v4 dark variant — hookup vào `.dark` class trên <html>.
+
+   Dùng cho `dark:` prefix trên các utility class. Ưu tiên dùng semantic CSS
+   variables (đã tự flip qua `:root` vs `.dark`); chỉ dùng `dark:` prefix khi
+   cần đổi class hoàn toàn (vd module-color brand chip variants). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Tailwind v4 TV variant — hookup vào `.tv` class trên <html> (do
+   `DisplayProvider` set). Dùng cho `tv:` prefix khi cần khác biệt mà `--ui-scale`
+   một mình không giải quyết được: ẩn chrome tương tác, đổi bậc font-weight,
+   nâng tương phản.
+
+   ⛔ BẪY Tailwind v4: class arbitrary phải viết LITERAL trong nguồn, KHÔNG được
+   nội suy từ biến (`tv:text-[${size}px]`) — scanner không quét ra nên rule không
+   bao giờ được sinh, lỗi IM LẶNG. Xem `grid-density.constants.ts:41-49`. */
+@custom-variant tv (&:where(.tv, .tv *));
+
+/* =============================================================================
+   Biến thể CẢM ỨNG & PWA — dành cho iPad. Đọc kỹ trước khi dùng.
+   =============================================================================
+
+   `touch:` = @media (hover: none) and (pointer: coarse)
+
+     Đây là biến thể ĐÚNG để tách iPad khỏi máy tính, KHÔNG PHẢI bề rộng màn.
+     Lý do: iPad Pro 12.9" nằm ngang cho viewport 1366px — trùng đúng dải của
+     laptop 14". Mọi rule viết theo bề rộng ở mốc đó sẽ đụng vào laptop, tức là
+     phá đúng thứ đang chạy tốt. Còn `pointer: coarse` thì CHỈ khớp khi người
+     dùng đang chạm bằng ngón tay:
+
+       • iPad chạm ngón  → hover:none  + pointer:coarse → KHỚP
+       • iPad + bàn phím Magic (có trackpad) → hover:hover + pointer:fine → KHÔNG
+         khớp, và đó là ĐÚNG: lúc đó máy có con trỏ thật, hover dùng được bình
+         thường nên giữ nguyên giao diện máy tính.
+       • Mọi PC / laptop → hover:hover + pointer:fine → KHÔNG BAO GIỜ khớp.
+
+     ⇒ Rule gắn `touch:` KHÔNG THỂ chạm tới bố cục PC/laptop. Đây là hàng rào
+       an toàn của toàn bộ đợt làm iPad.
+
+   `standalone:` = @media (display-mode: standalone)
+
+     Chỉ khớp khi app chạy từ biểu tượng ngoài Màn hình chính (đã "Thêm vào Màn
+     hình chính"), KHÔNG khớp khi mở trong tab Safari. Dùng cho những thứ chỉ
+     đúng ở chế độ toàn màn: chừa chỗ cho vạch Home, bỏ khoảng trống vốn dành
+     cho thanh URL.
+
+   ⛔ KHÔNG dùng `touch:` để ẩn chức năng. Chỉ dùng để đổi HÌNH THỨC (kích cỡ
+      vùng chạm, khoảng cách, bỏ hiệu ứng chỉ có nghĩa khi rê chuột). Ẩn chức
+      năng theo thiết bị là người dùng iPad mất đường đi mà không có cách nào
+      lấy lại.
+   ============================================================================= */
+@custom-variant touch (@media (hover: none) and (pointer: coarse));
+@custom-variant standalone (@media (display-mode: standalone));
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  :root {
+    --radius: 0.5rem;
+
+    /* ---------------------------------------------------------------------
+       Display mode — do `DisplayProvider` ghi đè trên `documentElement`.
+       Khai mặc định ở đây để app chạy đúng ngay cả khi provider chưa mount
+       (SSR-less first paint, hoặc trang lỗi render ngoài provider tree).
+
+       `--ui-scale` CHỈ nhân vào token typography (`generated-font.css`).
+       ⛔ KHÔNG áp vào root font-size: Tailwind v4 để `--spacing` theo rem nên
+       làm vậy sẽ phóng to cả padding/chiều cao/bề rộng và làm VỠ bố cục.
+       Khung giữ nguyên, chỉ chữ to lên.
+       --------------------------------------------------------------------- */
+    --ui-scale: 1;
+
+    /* ---------------------------------------------------------------------
+       VÙNG AN TOÀN (safe area) — iPad chạy PWA.
+
+       Trên PC/laptop và trong tab trình duyệt thường, `env(safe-area-inset-*)`
+       trả về **0px** → bốn biến này bằng 0 → mọi `calc()` dùng chúng cho ra
+       ĐÚNG con số cũ. Vì thế khai ở đây là an toàn tuyệt đối với desktop.
+
+       Chỉ khác 0 khi app chạy toàn màn trên iPad có vạch Home (inset dưới
+       ~20px). Dock neo đáy PHẢI cộng `--safe-b`, nếu không hàng icon nằm ngay
+       dưới vạch Home: vuốt lên là thoát app thay vì bấm trúng icon.
+
+       ⛔ KHÔNG viết thẳng `env(...)` rải rác trong component. Gom về một chỗ để
+          khi Apple đổi hành vi (đã đổi 3 lần từ iOS 11) chỉ phải sửa ở đây.
+       --------------------------------------------------------------------- */
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px);
+
+    /* -------------------------------------------------------------------
+       Hệ số GIÃN DÒNG — tách riêng khỏi `--ui-scale`, CỐ Ý.
+
+       Rất nhiều ô trong app có chiều cao CỐ ĐỊNH vừa khít một dòng chữ
+       (`h-6` = 24px, `h-7` = 28px, `h-8` = 32px — hơn 60 chỗ trong 7 module
+       dashboard). Nếu giãn dòng tăng cùng nhịp cỡ chữ thì ở +30%, dòng
+       `body-14` cao 20px → 26px và TRÀN khỏi ô 24px, các dòng đè lên nhau.
+       Đây chính là lỗi người dùng báo, và vì nó nằm ở token nên xảy ra ở MỌI
+       màn cùng lúc.
+
+       `DisplayProvider` đặt biến này ở NỬA nhịp: `1 + (uiScale − 1) × 0.5`.
+       Chữ to lên rõ rệt mà chiều cao dòng gần như giữ nguyên.
+       ------------------------------------------------------------------- */
+    --lh-scale: 1;
+
+    /* Bậc font-weight cho token typography — `generated-font.css` đọc qua
+       `var(--fw-*, fallback)`. Khai ở đây để đổi được toàn hệ thống từ MỘT chỗ.
+       Giá trị mặc định trùng fallback trong file generated (450/500/600/700). */
+    --fw-regular: 450;
+    --fw-medium: 500;
+    --fw-semibold: 600;
+    --fw-bold: 700;
+    /* Font stack: Inter dẫn đầu (chuẩn trading dashboard — TradingView/Stripe/
+       Vercel/Linear). PingFang SC / Microsoft YaHei / Segoe UI Variable đứng
+       giữa để render CJK + Windows 11 native đẹp hơn. System fonts đóng đuôi.
+
+       ⛔ `-apple-system` PHẢI ĐỨNG NGAY SAU 'Inter' — ĐỪNG ĐẨY XUỐNG CUỐI.
+          Đây là chỗ sửa lỗi "chữ đè lên nhau CHỈ trên iPad thật", không tái
+          hiện được bằng giả lập trên máy Windows.
+
+          Cơ chế hỏng của thứ tự cũ:
+            1. Inter VÀ Noto Sans đều chỉ đến từ Google Fonts (`display=swap`,
+               xem `index.html`) — app KHÔNG tự host `@font-face` nào. Mạng
+               chặn Google Fonts (rất hay gặp ở mạng nội bộ) hoặc chỉ đơn giản
+               là chưa tải xong → CẢ HAI đều vắng mặt. Nghĩa là "Noto Sans giữ
+               fallback cho dấu tiếng Việt" — ghi ở bản chú thích cũ — KHÔNG
+               bao giờ đúng lúc cần nhất.
+            2. Khi đó font CÀI SẴN đầu tiên khớp được trên iPadOS là
+               `PingFang SC` (và `Hiragino Sans`) — font Apple luôn có sẵn.
+            3. Hai font đó KHÔNG có đủ chữ Việt dựng sẵn (ế ộ ữ ằ…), nên trình
+               duyệt phải fallback THEO TỪNG KÝ TỰ. Một từ tiếng Việt vì thế
+               ghép từ hai font khác nhau: bề rộng ký tự và hộp dòng lệch nhau
+               → chữ chồng chữ, và bề ngang phình hơn mọi con số px đã cân
+               trong `header.theme.ts`.
+
+          Vì sao chèn `-apple-system` là an toàn tuyệt đối cho PC/laptop:
+          `-apple-system` / `BlinkMacSystemFont` CHỈ phân giải trên nền Apple;
+          trên Windows/Linux/Android chúng không khớp gì cả nên bị bỏ qua —
+          máy tính Windows render KHÔNG đổi một pixel nào. Trên iPad/Mac nó cho
+          SF Pro: phủ đủ chữ Việt, và vẫn nhường chỗ cho Inter khi Inter đã về
+          (Inter đứng trước). Chữ CJK không bị ảnh hưởng: SF Pro không có glyph
+          CJK nên vẫn rơi tiếp xuống PingFang SC / Hiragino như cũ. */
+    --font-sans:
+      'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Segoe UI Variable',
+      'Microsoft YaHei', 'Hiragino Sans', 'Noto Sans', ui-sans-serif, system-ui, 'Segoe UI', Roboto,
+      'Helvetica Neue', Arial, sans-serif;
+    /* Mono stack cho số liệu (KPI/table/chart labels) — JetBrains Mono có
+       digit shape rộng cân, hiển thị nét đanh kiểu Bloomberg Terminal trên
+       dark mode. Fallback qua system mono khi Google Fonts chưa tải. */
+    --font-mono:
+      'JetBrains Mono', 'Roboto Mono', 'SF Mono', ui-monospace, 'Menlo', 'Consolas',
+      'Liberation Mono', monospace;
+  }
+
+  /* Control GỐC của trình duyệt (thanh cuộn native ở vùng không có custom scrollbar, `<select>`,
+     ô ngày/giờ, spinner số, popup autofill) vẽ theo `color-scheme`. Thiếu khai báo này thì ở theme
+     tối chúng vẫn vẽ bản SÁNG — mảng trắng loé lên giữa nền navy. `.dark` do `ThemeProvider` gắn
+     lên `<html>` nên `:root.dark` khớp đúng phần tử đó. */
+  :root {
+    color-scheme: light;
+  }
+  :root.dark {
+    color-scheme: dark;
+  }
+
+  html {
+    height: 100%;
+    /* ⛔ KHÔNG phóng to root font-size theo `--ui-scale`.
+       Bản trước có `font-size: calc(16px * var(--ui-scale, 1))` và đó là nguyên
+       nhân làm vỡ bố cục ở TV mode: Tailwind v4 để `--spacing: 0.25rem` nên MỌI
+       utility khoảng cách/kích thước dạng số (`p-2`, `h-11`, `w-80`, `gap-2`…)
+       cũng là rem và giãn theo. Ở 1.8×, màn 1920px chỉ còn ~1067px không gian
+       logic → bảng/panel/header tràn, layout hỏng.
+       TV mode nay nhân `--ui-scale` vào RIÊNG token typography
+       (`generated-font.css`) → khung giữ nguyên, chỉ chữ to lên. */
+    /* Text-rendering pipeline cho chữ RÕ NÉT trên mọi kích thước:
+       - antialiased        → cạnh chữ mượt, không color-fringing trên dark bg.
+       - optimizeLegibility → bật kerning + ligatures (chuẩn dashboard tài chính).
+       - font-optical-sizing:auto → variable font tự chỉnh hinting theo cỡ chữ. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-optical-sizing: auto;
+    font-family: var(--font-sans);
+    /* ⛔ iPad — CHỐNG "chữ tự phình khi xoay ngang".
+       WebKit có tính năng riêng: xoay từ dọc sang ngang thì nó TỰ nhân cỡ chữ
+       của các khối văn bản dài lên cho "dễ đọc". Với app này đó là tai hoạ —
+       ô bảng cao cố định (`h-6`/`h-7`/`h-8`, hơn 60 chỗ) không giãn theo, chữ
+       phình ra là tràn ô và các dòng đè lên nhau, đúng kiểu lỗi đã gặp ở TV
+       mode. `100%` = giữ nguyên cỡ chữ do CSS quy định.
+       Trên desktop thuộc tính này không có hiệu lực → PC/laptop không đổi. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    height: 100%;
+    /* The app shell owns vertical scrolling via its own overflow-auto region
+       (BackgroundLayout / MainLayout). Lock the document to the viewport so it
+       can't add a SECOND scrollbar alongside the inner one. */
+    overflow: hidden;
+    background-color: var(--color-bg-base);
+    color: var(--color-fg-1);
+    font-family: var(--font-sans);
+    /* Body baseline weight = 450 (Inter variable). Nhích 0.5 step so với
+       Regular 400 để chữ rõ nét hơn trên nền tối mà KHÔNG bị "bloat" như
+       Medium 500. Áp cho mọi raw text không có class text-* override. */
+    font-weight: 450;
+    /* Tabular-nums mặc định — mọi cột số/KPI/table thẳng hàng khắp app
+       (dashboard tài chính chuẩn: TradingView, Stripe, Binance). Text prose
+       tiếng Việt không bị ảnh hưởng — chỉ tác động chữ số 0-9.
+       - 'tnum' : monospace digits (cột số thẳng hàng)
+       - 'cv11' : Inter square-friendly digit variant (đọc nét hơn trên dashboard)
+       - 'ss03' : stylistic set — bỏ tail 4, hiển thị đanh gọn */
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum', 'cv11', 'ss03';
+    transition:
+      background-color 200ms ease,
+      color 200ms ease;
+    /* Bỏ ô xám loé lên khi chạm — iOS vẽ nó cho MỌI phần tử bấm được, kể cả ô
+       bảng và chip, đọc ra như giao diện bị lỗi nhấp nháy. Trạng thái bấm đã có
+       `:active` của kit2 lo. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ⛔ iPad — vùng cuộn phải "nuốt" đà vuốt của chính nó.
+     Không có dòng này, vuốt tới cuối một panel là đà chuyển tiếp ra vùng cuộn
+     CHA (rồi ra tài liệu) — người dùng đang cuộn bảng bỗng thấy cả trang trôi.
+     Chỉ áp cho thiết bị chạm; chuột lăn trên desktop giữ nguyên hành vi cũ. */
+  @media (hover: none) and (pointer: coarse) {
+    /* ⛔ iPad — chặn "kéo giãn đàn hồi" (rubber-band) của cả trang. Vuốt quá đáy
+       một bảng, iOS chuyển đà vuốt lên tài liệu gốc và kéo TOÀN BỘ khung app
+       trượt, để lộ nền dưới đáy — nhìn như layout vỡ.
+       ⛔ PHẢI nằm TRONG media query này. Để ở `body` trần thì macOS dùng bàn di
+          cũng dính: mất nảy đàn hồi và mất cả cử chỉ vuốt-ngang-để-lùi-trang của
+          Safari/Chrome — tức là đụng vào máy tính, đúng thứ nhánh này cấm. */
+    body {
+      overscroll-behavior: none;
+    }
+
+    /* ⛔ KHỚP THEO CHUỖI TÊN CLASS, KHÔNG PHẢI TÊN CLASS CHÍNH XÁC.
+       Bản trước liệt kê `.overflow-x-auto, .overflow-y-auto, …` và BỎ SÓT toàn
+       bộ vùng cuộn khai qua biến thể: Tailwind sinh ra tên class RIÊNG cho mỗi
+       biến thể (`max-lg:overflow-x-auto` → `.max-lg\:overflow-x-auto`), và tên
+       đó KHÔNG khớp selector `.overflow-x-auto`. Mà đúng những vùng cuộn chỉ
+       bật ở bậc tablet mới là nơi cần `contain` nhất — vuốt hết dải chip/thanh
+       công cụ là Safari hiểu thành "lùi lại trang trước" và đẩy người dùng ra
+       khỏi màn đang làm việc.
+       `[class*="…"]` khớp cả tên trần lẫn mọi biến thể (`touch:`, `max-lg:`,
+       `max-xl:`, `lg:`…) nên không còn lỗ. Vẫn nằm trong media query chạm ⇒
+       PC/laptop không nhận một dòng nào. */
+    [class*='overflow-auto'],
+    [class*='overflow-y-auto'],
+    [class*='overflow-x-auto'],
+    [class*='overflow-scroll'],
+    [class*='overflow-y-scroll'],
+    [class*='overflow-x-scroll'] {
+      overscroll-behavior: contain;
+    }
+  }
+
+  /* ===========================================================================
+     TV mode — nâng bậc font-weight.
+
+     `--ui-scale` phóng to được cỡ chữ nhưng KHÔNG phóng to được độ đậm: weight
+     là thuộc tính rời rạc, không có đơn vị để nhân. Trên panel TV (độ tương phản
+     và độ nét kém hơn màn desktop, lại thường đặt ở phòng sáng) nét 450 bị chìm.
+     Nâng 2 bậc DƯỚI lên một nấc; semibold/bold giữ nguyên để không phá hierarchy
+     — nếu nâng cả 4 thì mọi cấp lại bằng nhau, mất luôn tác dụng phân cấp.
+
+     Đặt trên `:root.tv` (cùng phần tử <html> mà DisplayProvider gắn class) nên
+     biến kế thừa xuống toàn bộ cây. KHÔNG sinh thêm rule cho từng token → không
+     đụng tới specificity/thứ tự, không tranh chấp với utility `font-bold`.
+     =========================================================================== */
+  :root.tv {
+    --fw-regular: 500;
+    --fw-medium: 600;
+
+    /* KHÔNG nâng sàn riêng cho `caption-9` / `caption-10` nữa.
+       Bản trước kéo chúng từ 10px lên 12px, tức +20% trong khi mọi token khác
+       chỉ +10% — nhịp chữ trong cùng một thẻ bị lệch, và ở những hàng chật
+       (chip, ô bảng dày) chữ dễ tràn vì KHUNG không giãn theo.
+       Nay mọi token nhân cùng một hệ số, tương quan giữa các cấp giữ nguyên. */
+  }
+
+  /* Chữ thô không có class `text-*` (đọc `font-weight` từ body) cũng phải lên
+     bậc theo — nếu không, chúng là chỗ DUY NHẤT còn 450 giữa một màn hình 500. */
+  .tv body {
+    font-weight: 500;
+  }
+
+  #root {
+    height: 100%;
+  }
+
+  /* ===========================================================================
+     Custom scrollbar — tông lạnh trầm (sky/azure), cố ý lùi sau nội dung.
+     - Firefox    → `scrollbar-width` + `scrollbar-color` (không đỡ gradient →
+                    fallback màu đặc `--color-azure-6`).
+     - WebKit/Blink → gradient thumb, track trong suốt, hover/active đậm dần.
+     Bề rộng 6px (thumb nhìn thấy 4px) — đủ để rê chuột, vẫn không lấn nội dung.
+     ⛔ MỘT bề rộng cho toàn app: KHÔNG có variant "thanh nhỏ hơn" nữa. Chỉ được
+     override MÀU (`.scrollbar-muted`) hoặc ẩn hẳn (`.scrollbar-hidden`).
+
+     ⛔ CẢ HAI property chuẩn (`scrollbar-width` VÀ `scrollbar-color`) chỉ được
+     đặt trong khối @supports Firefox dưới đây. Từ Chrome 121, chỉ cần MỘT trong
+     hai có giá trị khác `auto` là Blink chuyển hẳn sang đường render chuẩn và
+     BỎ QUA toàn bộ `::-webkit-scrollbar*` → thanh cuộn quay về bề rộng native
+     (~15px), chỉ đổi được mỗi màu.
+     Bản trước chỉ cách ly `scrollbar-width`, còn `scrollbar-color` vẫn đặt trên
+     `*` cho MỌI browser → đó chính là lý do `width: 4px` bên dưới không có tác
+     dụng trên Chrome/Edge và thanh cuộn bảng hiện ra to đùng màu xanh brand.
+     ========================================================================= */
+  :root {
+    /* Nguồn DUY NHẤT chỉnh bề rộng thanh cuộn — sửa ở đây, đổi toàn app.
+
+       Đây là VÙNG CHẠM (rãnh cuộn), KHÔNG phải bề dày nhìn thấy của thumb — phần
+       nhìn thấy do `--scrollbar-thumb-inset` quyết định (xem thumb bên dưới).
+       10px để chuột tóm được thanh mà không phải nhắm; bản trước 6px — vừa là
+       phần nhìn thấy vừa là vùng chạm — nên muốn kéo phải trúng đúng 6px đó.
+
+       ⛔ Bề rộng này phải CỐ ĐỊNH, KHÔNG được đổi theo `:hover`: nó chiếm chỗ
+       thật trong content box, đổi là mọi vùng cuộn co giãn ngang khi rê chuột — và
+       những chỗ ĐO container để vẽ (vd `ProjectTotalDonut`) sẽ nhảy vòng
+       ResizeObserver, đúng lỗi đã phải dập bằng `[scrollbar-gutter:stable]`. */
+    --scrollbar-size: 10px;
+    /* ⚠️ Cố ý BẰNG `--scrollbar-size`: một app chỉ được có MỘT bề rộng thanh
+       cuộn. `.scrollbar-thin` (deprecated, xem @layer utilities) từng đặt 3px
+       trong khi phần còn lại 4px → hai panel cạnh nhau lệch nhau rõ. Đừng tách
+       lại thành số khác nếu không muốn tái diễn. */
+    --scrollbar-size-thin: var(--scrollbar-size);
+  }
+
+  @supports (-moz-appearance: none) {
+    * {
+      scrollbar-width: thin;
+      /* Khớp tông với thumb webkit ở dưới (azure-6 mờ) — Firefox không đỡ
+         gradient nên lấy stop giữa làm màu đặc. */
+      scrollbar-color: color-mix(in srgb, var(--color-azure-6) 55%, transparent) transparent;
+    }
+  }
+
+  *::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* ⛔ Hover/active KHÔNG đổi sang tông màu khác, chỉ ĐẬM và TRẦM hơn.
+     Bản trước làm ngược: hover/active nhảy sang bộ màu sáng full saturation
+     (sky-4/brand/sky-6 rồi sky-3/brand/azure-4) → lúc kéo thanh cuộn chói hơn
+     cả dữ liệu, và trông như một control khác hẳn.
+     Nay chỉ một họ màu lạnh (sky/azure) đi XUỐNG bậc khi tương tác:
+       nghỉ   → sky-7 · azure-6 · azure-7   @ 52%
+       hover  → giữ nguyên bậc              @ 62%
+       active → xuống thêm 1 bậc            @ 95%  (đặc, tối, không chói)
+     Cũng bỏ hẳn `brand` (#22C55E) khỏi gradient — đó là stop sáng nhất, là thứ
+     làm thanh cuộn nổi hơn nội dung. Chỉnh sắc độ → sửa các var bên dưới. */
+  *::-webkit-scrollbar-thumb {
+    --scrollbar-thumb-1: var(--color-sky-7);
+    --scrollbar-thumb-2: var(--color-azure-6);
+    --scrollbar-thumb-3: var(--color-azure-7);
+    /* 52% chứ không phải 40% như khi thumb còn dày 4px: mảnh đi một nửa thì
+       cùng độ mờ đó đọc ra nhạt hơn hẳn, dễ mất hút trên nền navy. */
+    --scrollbar-thumb-alpha: 52%;
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--scrollbar-thumb-1) var(--scrollbar-thumb-alpha), transparent) 0%,
+      color-mix(in srgb, var(--scrollbar-thumb-2) var(--scrollbar-thumb-alpha), transparent) 50%,
+      color-mix(in srgb, var(--scrollbar-thumb-3) var(--scrollbar-thumb-alpha), transparent) 100%
+    );
+    border-radius: 9999px;
+    /* Border-padding-box trick → viền trong suốt ăn vào hai bên, thumb nhìn thấy
+       = `--scrollbar-size` - 2 × inset. Nhờ vậy đổi được BỀ DÀY TRÔNG THẤY mà
+       không đụng tới bề rộng rãnh ⇒ không gây reflow (xem `--scrollbar-size`).
+         nghỉ  → inset 4px ⇒ dày 2px, chỉ là một vạch mảnh
+         hover → inset 1px ⇒ dày 8px, dễ tóm
+
+       Lúc nghỉ cố ý MẢNH: thanh cuộn không mang thông tin gì ngoài "còn nội
+       dung phía dưới", để dày là nó tranh chỗ với chính nội dung đó. Rê vào
+       vùng cuộn mới nở ra — lúc ấy mới có ý định tóm. */
+    --scrollbar-thumb-inset: 4px;
+    border: var(--scrollbar-thumb-inset) solid transparent;
+    background-clip: padding-box;
+    transition:
+      background 200ms ease,
+      border-width 120ms ease;
+  }
+
+  /* RÊ VÀO VÙNG CUỘN là thumb dày lên — không chờ trúng đúng thumb mới béo ra.
+     Người dùng nhìn thấy chỗ để tóm TRƯỚC khi đưa chuột tới đó. */
+  *:hover::-webkit-scrollbar-thumb {
+    --scrollbar-thumb-inset: 1px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    --scrollbar-thumb-alpha: 62%;
+    --scrollbar-thumb-inset: 1px;
+  }
+
+  *::-webkit-scrollbar-thumb:active {
+    --scrollbar-thumb-1: var(--color-sky-8);
+    --scrollbar-thumb-2: var(--color-azure-7);
+    --scrollbar-thumb-3: var(--color-azure-8);
+    --scrollbar-thumb-alpha: 95%;
+  }
+
+  /* ===========================================================================
+     Autofill — kill browser default yellow/white background (Chrome/Edge/Safari).
+     Trick: dùng box-shadow inset 1000px để đè lên background autofill
+     (không set background-color được vì browser force !important).
+     Transition 5000s trì hoãn animation flash background lúc autofill trigger.
+     ========================================================================= */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active,
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:hover,
+  textarea:-webkit-autofill:focus,
+  textarea:-webkit-autofill:active,
+  select:-webkit-autofill,
+  select:-webkit-autofill:hover,
+  select:-webkit-autofill:focus,
+  select:-webkit-autofill:active {
+    -webkit-text-fill-color: var(--color-fg-1);
+    -webkit-box-shadow: 0 0 0 1000px var(--color-bg-input) inset;
+    box-shadow: 0 0 0 1000px var(--color-bg-input) inset;
+    caret-color: var(--color-fg-1);
+    transition: background-color 5000s ease-in-out 0s;
+  }
+}
+
+/* ===========================================================================
+   Scrollbar utility variants — opt-in via className.
+   ========================================================================= */
+@layer utilities {
+  /** ⚠️ DEPRECATED — `.scrollbar-thin` nay KHÔNG đổi bề rộng nữa (no-op).
+      Lý do: class này đang nằm ở 87 file, còn ~40 vùng cuộn khác (page shell,
+      body modal, bảng) thì không có → app tồn tại SONG SONG hai bề rộng thanh
+      cuộn, nhìn lệch hẳn giữa các panel cạnh nhau. Bề rộng nay CHỈ đến từ
+      `--scrollbar-size` (@layer base) → mọi vùng cuộn bằng nhau.
+      Giữ selector (thay vì xoá) để 87 file kia không phải sửa và không vỡ khi
+      ai đó thêm mới theo thói quen. Cần vùng cuộn nhạt hơn → `.scrollbar-muted`.
+      KHÔNG thêm class này vào code mới. */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: var(--scrollbar-size-thin);
+    height: var(--scrollbar-size-thin);
+  }
+
+  /** Scrollbar trung tính — bỏ gradient brand, dùng cho danh sách dữ liệu dày
+      (bảng trong panel dashboard) nơi thanh cuộn xanh lá nổi hơn cả dữ liệu. */
+  @supports (-moz-appearance: none) {
+    .scrollbar-muted {
+      scrollbar-color: color-mix(in srgb, var(--color-fg-4) 26%, transparent) transparent;
+    }
+  }
+  /* Cùng luật với thumb mặc định: hover/active chỉ đậm lên, KHÔNG đổi sang
+     token màu khác (bản trước nhảy fg-4 → fg-3). */
+  .scrollbar-muted::-webkit-scrollbar-thumb {
+    --scrollbar-thumb-alpha: 26%;
+    background: color-mix(in srgb, var(--color-fg-4) var(--scrollbar-thumb-alpha), transparent);
+    background-clip: padding-box;
+  }
+  .scrollbar-muted::-webkit-scrollbar-thumb:hover {
+    --scrollbar-thumb-alpha: 46%;
+  }
+  .scrollbar-muted::-webkit-scrollbar-thumb:active {
+    --scrollbar-thumb-alpha: 66%;
+  }
+
+  /** Hide scrollbar visually but keep scroll behavior (carousels, tabs). */
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hidden {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  /* ===========================================================================
+     ⛔ `.num-mono` / `.num-mono-light` ĐÃ BỎ (không khai lại).
+
+     Hai recipe đó ép JetBrains Mono cho MỌI con số của app — KPI, ô bảng, nhãn
+     chart, mốc thời gian. Kết quả là số và chữ trong cùng một dòng chạy hai hệ
+     chữ khác nhau, và ở cỡ 10–12px thì chữ số mono còn nhoè hơn font sans.
+     Chúng cũng khoá cứng `font-weight: 600` trong một CSS rule, nên component
+     nào đặt `weight` riêng đều bị nuốt tuỳ theo thứ tự đổ CSS.
+
+     Căn cột số giờ do `tabular-nums` (utility Tailwind) đảm nhiệm — đó vẫn là
+     BẮT BUỘC cho mọi số liệu. Xem `docs/rules/visual-hierarchy.md §3.3`.
+     ========================================================================= */
+}
+
+/* =========================
+   RECHARTS: Remove focus outline / black border on click
+   Recharts v3 adds tabIndex=0 to wrapper & surface → browser shows focus ring.
+   Cover all states: :focus, :focus-visible, :focus-within + box-shadow.
+========================= */
+.recharts-responsive-container,
+.recharts-wrapper,
+.recharts-surface,
+.recharts-layer,
+.recharts-sector,
+.recharts-rectangle,
+.recharts-curve,
+.recharts-dot,
+.recharts-symbols,
+.recharts-cartesian-grid,
+.recharts-brush {
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.recharts-responsive-container:focus,
+.recharts-responsive-container:focus-visible,
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-wrapper:focus-within,
+.recharts-surface:focus,
+.recharts-surface:focus-visible,
+.recharts-wrapper svg:focus,
+.recharts-wrapper svg:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Recharts v3: reset tất cả element con bên trong wrapper */
+.recharts-wrapper *:focus,
+.recharts-wrapper *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* =========================
+   Splitter drag — trong lúc kéo, ép cursor resize TOÀN trang + chặn bôi đen
+   chữ. Class do `Splitter` gắn/gỡ trên <body> khi bắt đầu/kết thúc kéo → cursor
+   không nhảy về mặc định khi con trỏ đi qua element khác giữa lúc kéo.
+========================= */
+body.splitter-resizing-x,
+body.splitter-resizing-x * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+body.splitter-resizing-y,
+body.splitter-resizing-y * {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+
+[data-thatopen-logo] {
+  display: none !important;
+}
+
+.mapboxgl-ctrl-bottom-left {
+  display: none;
+}
+
+/* =============================================================================
+   TV mode — THU PADDING để bù phần chữ to ra.
+
+   Chữ to lên mà khoảng trắng giữ nguyên thì nội dung bị đẩy ra ngoài khung.
+   Thu bớt padding trả lại đúng phần diện tích đó cho nội dung.
+
+   ⛔ ĐẶT NGOÀI MỌI `@layer` — CỐ Ý, đừng chuyển vào `@layer base`.
+   Cascade layer thắng theo THỨ TỰ LAYER trước, specificity chỉ xét TRONG cùng
+   layer. Tailwind đặt utility ở `@layer utilities` (sau `base`), nên rule nằm
+   trong `base` sẽ THUA `.p-4` dù selector có cụ thể hơn — đã thử và không ăn.
+   CSS không thuộc layer nào thì thắng mọi layer, nên chỗ này là chỗ đúng.
+
+   ⛔ VÌ SAO KHÔNG override `--spacing` — đã kiểm bằng chính CSS đã build:
+   Tailwind v4 sinh CẢ HAI dạng từ cùng một biến:
+       .p-2  { padding: calc(var(--spacing) * 2);  }
+       .w-80 { width:   calc(var(--spacing) * 80); }
+   Nên hạ `--spacing` sẽ co luôn BỀ RỘNG cột/sidebar — chữ to ra mà ô hẹp lại là
+   tệ hơn hẳn tình trạng ban đầu.
+
+   ⛔ VÌ SAO CHỈ THU CÁC MỨC ≥ 3 (12px trở lên):
+   Repo này vốn đã ở mật độ cao — `p-2`/`gap-2` (8px) chiếm áp đảo và chính là
+   mức chuẩn của `visual-hierarchy.md`. Thu 8px → 6px chỉ được 2px mỗi cạnh,
+   không đáng mà lại làm các khối dính vào nhau. Chỉ những chỗ còn dư thật
+   (12px, 16px, 24px) mới có gì để trả lại.
+   ============================================================================= */
+/*
+ * Thu TỈ LỆ NGHỊCH với cỡ chữ: chia cho `--ui-scale` thay vì trừ một bậc cố
+ * định. Chữ càng to thì khoảng trắng càng nhường chỗ, và phần bù luôn khớp đúng
+ * mức phóng người dùng chọn thay vì chỉ đúng ở một mức.
+ *
+ *   p-4 (16px) →  ×1.1: 14.5px  ·  ×1.2: 13.3px  ·  ×1.3: 12.3px
+ *
+ * Một công thức cho mọi mức — thêm mức phóng mới không phải sửa gì ở đây.
+ */
+:root.tv .p-3 {
+  padding: calc(var(--spacing) * 3 / var(--ui-scale));
+}
+:root.tv .p-4 {
+  padding: calc(var(--spacing) * 4 / var(--ui-scale));
+}
+:root.tv .p-6 {
+  padding: calc(var(--spacing) * 6 / var(--ui-scale));
+}
+
+:root.tv .px-3 {
+  padding-inline: calc(var(--spacing) * 3 / var(--ui-scale));
+}
+:root.tv .px-4 {
+  padding-inline: calc(var(--spacing) * 4 / var(--ui-scale));
+}
+:root.tv .px-6 {
+  padding-inline: calc(var(--spacing) * 6 / var(--ui-scale));
+}
+
+:root.tv .py-3 {
+  padding-block: calc(var(--spacing) * 3 / var(--ui-scale));
+}
+:root.tv .py-4 {
+  padding-block: calc(var(--spacing) * 4 / var(--ui-scale));
+}
+:root.tv .py-6 {
+  padding-block: calc(var(--spacing) * 6 / var(--ui-scale));
+}
+
+:root.tv .gap-3 {
+  gap: calc(var(--spacing) * 3 / var(--ui-scale));
+}
+:root.tv .gap-4 {
+  gap: calc(var(--spacing) * 4 / var(--ui-scale));
+}
+:root.tv .gap-6 {
+  gap: calc(var(--spacing) * 6 / var(--ui-scale));
+}

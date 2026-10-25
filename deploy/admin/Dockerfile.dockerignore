@@ -1,0 +1,4 @@
+# Chỉ đưa vào context thứ ảnh admin cần (BuildKit đọc file này cho `-f deploy/admin/Dockerfile`).
+*
+!admin/dist
+!deploy/admin/nginx.conf

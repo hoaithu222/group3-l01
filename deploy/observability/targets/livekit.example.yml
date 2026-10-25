@@ -1,0 +1,6 @@
+# LiveKit server (prometheus_port 6789 trong livekit.yaml) — chép thành targets/livekit.yml rồi điền địa chỉ RIÊNG của VM media.
+# Firewall VM media chỉ cho phép VM giám sát tới 6789. Cùng VM app (staging đơn-VM): host.docker.internal:6789.
+- targets:
+    - 10.0.0.5:6789
+  labels:
+    service: livekit

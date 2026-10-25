@@ -1,0 +1,8 @@
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path class="text-warning-5" d="M4.5 13V2.5C4.5 2.22386 4.72386 2 5 2H14.5L19.5 7V13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path class="text-warning-5" d="M14.5 2V7H19.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect class="text-warning-5" x="1.5" y="12.25" width="21" height="9.5" rx="2" stroke="currentColor" stroke-width="1.5"/>
+  <path class="text-warning-5" d="M3.9 14.6V19.4M3.9 14.6H5.5C6.8 14.6 7.8 15.7 7.8 17C7.8 18.3 6.8 19.4 5.5 19.4H3.9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path class="text-warning-5" d="M9.9 14.6L14.1 19.4M14.1 14.6L9.9 19.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path class="text-warning-5" d="M16.3 19.4V14.6H20.4M16.3 17.2H19.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

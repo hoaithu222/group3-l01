@@ -1,0 +1,771 @@
+{
+  "events": [
+    {
+      "direction": "s2c",
+      "name": "user:connected",
+      "payload": "User vừa kết nối",
+      "room": "broadcast",
+      "since": "p0-03"
+    },
+    {
+      "direction": "s2c",
+      "name": "user:disconnected",
+      "payload": "User vừa ngắt kết nối",
+      "room": "broadcast",
+      "since": "p0-03"
+    },
+    {
+      "direction": "c2s",
+      "name": "room:join",
+      "payload": "{ kind, id } — yêu cầu tham gia phòng, ack { ok }",
+      "room": null,
+      "since": "p0-03"
+    },
+    {
+      "direction": "c2s",
+      "name": "room:leave",
+      "payload": "{ kind, id } — yêu cầu rời phòng",
+      "room": null,
+      "since": "p0-03"
+    },
+    {
+      "direction": "s2c",
+      "name": "permission:revoked",
+      "payload": "Quyền/room bị thu hồi — server chủ động đẩy tới user:{id} rồi kick khỏi room",
+      "room": "user",
+      "since": "p0-02"
+    },
+    {
+      "direction": "s2c",
+      "name": "config:updated",
+      "payload": "{ v, keys, configVersion, serverNow } — cờ/giới hạn runtime vừa đổi, client tự GET /capabilities lại",
+      "room": "broadcast",
+      "since": "p0-07"
+    },
+    {
+      "deprecated": {
+        "replacement": "message:created",
+        "since": "p1-04"
+      },
+      "direction": "s2c",
+      "name": "message:new",
+      "payload": "(legacy)",
+      "room": null,
+      "since": "p0-03"
+    },
+    {
+      "direction": "s2c",
+      "name": "notification",
+      "payload": "Thông báo hệ thống (generic)",
+      "room": "user",
+      "since": "p0-03"
+    },
+    {
+      "direction": "s2c",
+      "name": "error",
+      "payload": "Lỗi phía server",
+      "room": null,
+      "since": "p0-03"
+    },
+    {
+      "direction": "s2c",
+      "name": "notification:created",
+      "payload": "Thông báo mới trong inbox",
+      "room": "user",
+      "since": "p1-07"
+    },
+    {
+      "direction": "s2c",
+      "name": "notification:read",
+      "payload": "{ v, ids?, all?: { filter, workspaceId?, before }, serverNow } — đồng bộ đã đọc đa thiết bị",
+      "room": "user",
+      "since": "p1-07"
+    },
+    {
+      "direction": "s2c",
+      "name": "read:updated",
+      "payload": "{ v, streamType, streamId, lastReadSeq, unreadCount?, mentionCount?, originDeviceId? } — đồng bộ đã đọc đa thiết bị",
+      "room": "user",
+      "since": "p1-07"
+    },
+    {
+      "direction": "s2c",
+      "name": "unread:summary-changed",
+      "payload": "{ reason: MUTE|READ_ALL|REBUILD } — gợi ý client refetch GET /me/unread/summary (debounce 2s/user)",
+      "room": "user",
+      "since": "p1-07"
+    },
+    {
+      "direction": "s2c",
+      "name": "presence:updated",
+      "payload": "Trạng thái hiện diện (online/away/dnd) của một user đổi",
+      "room": null,
+      "since": "p0-03"
+    },
+    {
+      "direction": "c2s",
+      "name": "auth:refresh",
+      "payload": "{ token } → ack { ok, code? } — làm mới socket.data.user/exp không cần reconnect",
+      "room": null,
+      "since": "p0-03"
+    },
+    {
+      "direction": "s2c",
+      "name": "session:expiring",
+      "payload": "{ v, exp } — gửi 60s trước khi access token hết hạn nếu client chưa auth:refresh",
+      "room": "user",
+      "since": "p0-03"
+    },
+    {
+      "direction": "c2s",
+      "name": "typing:stop",
+      "payload": "{ scopeType, scopeId, threadId? } — ngừng gõ",
+      "room": null,
+      "since": "p0-03"
+    },
+    {
+      "direction": "c2s",
+      "name": "presence:set",
+      "payload": "{ dnd, until? } — bật/tắt DND thủ công",
+      "room": null,
+      "since": "p0-03"
+    },
+    {
+      "direction": "s2c",
+      "name": "message:created",
+      "payload": "Tin nhắn mới trong kênh/hội thoại",
+      "room": "conv",
+      "since": "p1-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "message:updated",
+      "payload": "Tin nhắn đã sửa (bản chụp đầy đủ, so version)",
+      "room": "conv",
+      "since": "p1-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "message:deleted",
+      "payload": "Tin nhắn đã xoá",
+      "room": "conv",
+      "since": "p1-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "message:hidden",
+      "payload": "{ messageId, scopeType, scopeId, hidden } — ẩn/hiện phía tôi đa thiết bị",
+      "room": "user",
+      "since": "p1-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "thread:updated",
+      "payload": "Thread đổi (reply mới, đếm reply, ...)",
+      "room": "conv",
+      "since": "p1-06"
+    },
+    {
+      "direction": "s2c",
+      "name": "thread:subscription-updated",
+      "payload": "Đồng bộ theo dõi thread đa thiết bị sau PUT /threads/:id/subscription",
+      "room": "user",
+      "since": "p1-06"
+    },
+    {
+      "direction": "s2c",
+      "name": "reaction:updated",
+      "payload": "Reaction trên tin nhắn đổi",
+      "room": "conv",
+      "since": "p1-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "pin:updated",
+      "payload": "Danh sách ghim của kênh/hội thoại đổi",
+      "room": "conv",
+      "since": "p1-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "saved:updated",
+      "payload": "{ v, messageId, saved, serverNow } — đồng bộ lưu/bỏ lưu tin đa thiết bị (chỉ khi trạng thái ĐỔI)",
+      "room": "user",
+      "since": "p1-09"
+    },
+    {
+      "direction": "s2c",
+      "name": "announcement:updated",
+      "payload": "{ v, messageId, channelId, required, deadlineAt, cancelled, serverNow } — yêu cầu xác nhận đã đọc kênh thông báo thay đổi; cũng gửi tới user:{userId} khi chính người đó vừa xác nhận (confirmedByMe:true)",
+      "room": "ch",
+      "since": "p5-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "announcement:confirmed",
+      "payload": "{ v, messageId, channelId, confirmedCount, serverNow } — có người mới xác nhận (throttle 2s/yêu cầu)",
+      "room": "user",
+      "since": "p5-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "conversation:activity",
+      "payload": "Hoạt động mới trong hội thoại (từng member)",
+      "room": "user",
+      "since": "p1-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "conversation:created",
+      "payload": "Hội thoại mới tạo/thêm người mới",
+      "room": "user",
+      "since": "p1-05"
+    },
+    {
+      "direction": "s2c",
+      "name": "conversation:updated",
+      "payload": "patch/dissolve/archive/block/eligibility đổi",
+      "room": "user",
+      "since": "p1-05"
+    },
+    {
+      "direction": "s2c",
+      "name": "conversation:member-updated",
+      "payload": "Đổi vai trò/thêm/xoá/chuyển chủ (room conv) — cài đặt cá nhân gửi user:{id}",
+      "room": "conv",
+      "since": "p1-05"
+    },
+    {
+      "direction": "s2c",
+      "name": "conversation:removed",
+      "payload": "Người bị xoá/rời hội thoại",
+      "room": "user",
+      "since": "p1-05"
+    },
+    {
+      "direction": "s2c",
+      "name": "read:receipt",
+      "payload": "Read marker của hội thoại",
+      "room": "conv",
+      "since": "p1-05"
+    },
+    {
+      "direction": "s2c",
+      "name": "channel:activity",
+      "payload": "Hoạt động mới trong kênh — tới từng người có quyền đọc",
+      "room": "user",
+      "since": "p1-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "channel:created",
+      "payload": "Kênh mới tạo",
+      "room": "ws",
+      "since": "p1-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "channel:updated",
+      "payload": "Kênh đổi (tên/mô tả/visibility/...)",
+      "room": "ch",
+      "since": "p1-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "channel:archived",
+      "payload": "Kênh bị lưu trữ",
+      "room": "ch",
+      "since": "p1-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "channel:granted",
+      "payload": "Người dùng được cấp quyền vào kênh",
+      "room": "user",
+      "since": "p1-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "channel:revoked",
+      "payload": "Người dùng bị thu hồi quyền vào kênh",
+      "room": "user",
+      "since": "p1-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "member:updated",
+      "payload": "Thành viên workspace đổi (role/trạng thái)",
+      "room": "ws",
+      "since": "p1-02"
+    },
+    {
+      "direction": "s2c",
+      "name": "moderation:report-created",
+      "payload": "{ v, groupKey, targetType, reportCount } — có báo cáo mới (KHÔNG kèm nội dung)",
+      "room": "admin",
+      "since": "p1-08"
+    },
+    {
+      "direction": "s2c",
+      "name": "moderation:report-updated",
+      "payload": "{ v, groupKey, status, resolution } — nhóm báo cáo được xử lý",
+      "room": "admin",
+      "since": "p1-08"
+    },
+    {
+      "direction": "s2c",
+      "name": "block:updated",
+      "payload": "{ v, added?, removed? } — đồng bộ danh sách chặn đa thiết bị (KHÔNG gửi cho người bị chặn)",
+      "room": "user",
+      "since": "p1-08"
+    },
+    {
+      "direction": "s2c",
+      "name": "workspace:updated",
+      "payload": "Workspace đổi (tên/ảnh/cài đặt)",
+      "room": "ws",
+      "since": "p1-02"
+    },
+    {
+      "direction": "s2c",
+      "name": "workspace:archived",
+      "payload": "Workspace bị lưu trữ",
+      "room": "ws",
+      "since": "p1-02"
+    },
+    {
+      "direction": "s2c",
+      "name": "wallet:updated",
+      "payload": "{ v, workspaceId, walletVersion, changedUserIds, reason, serverNow } — KHÔNG kèm số tiền, client refetch summary khi walletVersion mới hơn",
+      "room": "ws",
+      "since": "p6-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "typing",
+      "payload": "Broadcast trạng thái đang gõ tới người khác",
+      "room": null,
+      "since": "p0-03"
+    },
+    {
+      "direction": "s2c",
+      "name": "board:updated",
+      "payload": "Bảng công việc đổi (tên/cột/cài đặt)",
+      "room": "board",
+      "since": "p2"
+    },
+    {
+      "direction": "s2c",
+      "name": "task:created",
+      "payload": "Thẻ công việc mới",
+      "room": "board",
+      "since": "p2"
+    },
+    {
+      "direction": "s2c",
+      "name": "task:updated",
+      "payload": "Thẻ công việc đổi",
+      "room": "board",
+      "since": "p2"
+    },
+    {
+      "direction": "s2c",
+      "name": "task:moved",
+      "payload": "Thẻ công việc đổi cột/vị trí",
+      "room": "board",
+      "since": "p2"
+    },
+    {
+      "direction": "s2c",
+      "name": "task:deleted",
+      "payload": "Thẻ công việc bị xoá",
+      "room": "board",
+      "since": "p2"
+    },
+    {
+      "direction": "s2c",
+      "name": "task:activity",
+      "payload": "Hoạt động mới trên thẻ (bình luận, ...)",
+      "room": "board",
+      "since": "p2"
+    },
+    {
+      "direction": "s2c",
+      "name": "board:rescheduled",
+      "payload": "{ v, boardId, rescheduleId?, batchId?, taskIds, count, final, serverNow } — dời lịch hàng loạt (final=true ở lượt cuối)",
+      "room": "board",
+      "since": "p4-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "task:review-updated",
+      "payload": "{ v, serverNow, taskId, boardId, roundId, round, status, approvedCount, requiredReviews, assignedCount, reviewerIds } — KHÔNG mang điểm/nhận xét",
+      "room": "board",
+      "since": "p4-05"
+    },
+    {
+      "direction": "s2c",
+      "name": "review:requested",
+      "payload": "Được giao chấm một thẻ",
+      "room": "user",
+      "since": "p4-05"
+    },
+    {
+      "direction": "s2c",
+      "name": "resource:changed",
+      "payload": "{ v:1, workspaceId, folderId, kind: FOLDER|RESOURCE, action: CREATED|UPDATED|DELETED } — KHÔNG tên tệp",
+      "room": "ws",
+      "since": "p3-01"
+    },
+    {
+      "direction": "s2c",
+      "name": "quiz:lobby",
+      "payload": "Trạng thái phòng chờ quiz",
+      "room": "quiz",
+      "since": "p5-01"
+    },
+    {
+      "direction": "s2c",
+      "name": "quiz:question",
+      "payload": "Câu hỏi hiện tại được mở",
+      "room": "quiz",
+      "since": "p5-01"
+    },
+    {
+      "direction": "s2c",
+      "name": "quiz:reveal",
+      "payload": "Đáp án câu hỏi được công bố",
+      "room": "quiz",
+      "since": "p5-01"
+    },
+    {
+      "direction": "s2c",
+      "name": "quiz:leaderboard",
+      "payload": "Bảng xếp hạng cập nhật",
+      "room": "quiz",
+      "since": "p5-01"
+    },
+    {
+      "direction": "s2c",
+      "name": "quiz:ended",
+      "payload": "Phiên quiz kết thúc",
+      "room": "quiz",
+      "since": "p5-01"
+    },
+    {
+      "direction": "s2c",
+      "name": "quiz:progress",
+      "payload": "{ v, serverNow, sessionId, index, answeredCount, playersCount } — CHỈ host, throttle 500ms; người chơi KHÔNG nhận",
+      "room": "user",
+      "since": "p5-01"
+    },
+    {
+      "direction": "s2c",
+      "name": "quiz:host-changed",
+      "payload": "{ v:1, hostId } — chuyển quyền host (P1, CHƯA phát)",
+      "room": "quiz",
+      "since": "p5-01"
+    },
+    {
+      "direction": "s2c",
+      "name": "call:incoming",
+      "payload": "{ call, ring, expiresAt } — có cuộc gọi đến (ring:false = banner nhóm > 16 người)",
+      "room": "user",
+      "since": "p2-02"
+    },
+    {
+      "direction": "s2c",
+      "name": "call:accepted",
+      "payload": "{ userId, originDeviceId } — có người trả lời",
+      "room": "call",
+      "since": "p2-02"
+    },
+    {
+      "direction": "s2c",
+      "name": "call:answered-elsewhere",
+      "payload": "{ originDeviceId } — thiết bị khác của cùng người đã trả lời, ngừng chuông",
+      "room": "user",
+      "since": "p2-02"
+    },
+    {
+      "direction": "s2c",
+      "name": "call:declined",
+      "payload": "{ userId, originDeviceId }",
+      "room": "call",
+      "since": "p2-02"
+    },
+    {
+      "direction": "s2c",
+      "name": "call:cancelled",
+      "payload": "{ reason: CANCELLED|NO_ANSWER|DECLINED_ELSEWHERE }",
+      "room": "user",
+      "since": "p2-02"
+    },
+    {
+      "direction": "s2c",
+      "name": "call:ended",
+      "payload": "{ endReason, durationSec }",
+      "room": "call",
+      "since": "p2-02"
+    },
+    {
+      "direction": "s2c",
+      "name": "call:participant-updated",
+      "payload": "{ participant: { userId, state, role, handRaisedAt, mutedByHost } } — kênh voice thêm name/avatarUrl/isHost + count",
+      "room": "call",
+      "since": "p2-02"
+    },
+    {
+      "direction": "s2c",
+      "name": "call:host-action",
+      "payload": "{ type, targetUserId, byUserId, reason? } — host điều khiển phòng (MUTED, ROLE_CHANGED, SCREEN_SHARE_REJECTED, LOWER_ALL_HANDS, HAND_LOWERED, REMOVED)",
+      "room": "call",
+      "since": "p2-03"
+    },
+    {
+      "direction": "s2c",
+      "name": "channel:voice-activity",
+      "payload": "{ channelId, workspaceId, voice: { callId, count } } — số người đang trong phòng thoại VOICE của kênh",
+      "room": "ws",
+      "since": "p2-03"
+    },
+    {
+      "direction": "s2c",
+      "name": "call:updated",
+      "payload": "Cuộc gọi đổi trạng thái (generic)",
+      "room": "call",
+      "since": "p2-01"
+    },
+    {
+      "direction": "s2c",
+      "name": "call:recording",
+      "payload": "{ v, callId, meetingId, state: CONSENT_REQUESTED|CONSENT_PROGRESS|RECORDING|STOPPING|STOPPED|FAILED, requestId?, expiresAt?, acceptedCount?, pendingCount?, declinedCount?, recordingId?, startedAt?, requestedBy?, serverNow } — chỉ SỐ LƯỢNG đồng ý",
+      "room": "call",
+      "since": "p2-06"
+    },
+    {
+      "direction": "s2c",
+      "name": "meeting:invited",
+      "payload": "{ meetingId, workspaceId, title, startAt, endAt, hostId, role }",
+      "room": "user",
+      "since": "p2-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "meeting:updated",
+      "payload": "{ meetingId, version, changedFields[], status, startAt?, endAt?, rsvpSummary? } — cũng gửi user:{attendeeId}",
+      "room": "meet",
+      "since": "p2-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "meeting:cancelled",
+      "payload": "{ meetingId, version, cancelReason?, byAdmin } — cũng gửi user:{attendeeId}",
+      "room": "meet",
+      "since": "p2-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "meeting:attendee-removed",
+      "payload": "{ meetingId, userId, version } — cũng gửi user:{removedUserId}",
+      "room": "meet",
+      "since": "p2-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "meeting:started",
+      "payload": "{ meetingId, callId, startedBy, version, restarted } — cũng gửi user:{attendeeIds}",
+      "room": "meet",
+      "since": "p2-05"
+    },
+    {
+      "direction": "s2c",
+      "name": "meeting:ended",
+      "payload": "{ meetingId, callId, reason, durationSec? }",
+      "room": "meet",
+      "since": "p2-05"
+    },
+    {
+      "direction": "s2c",
+      "name": "meeting:lobby",
+      "payload": "{ meetingId, state, userId, displayName?, lobbyCount } — REQUESTED/CANCELLED tới HOST/CO_HOST; ADMITTED/DENIED tới requester",
+      "room": "user",
+      "since": "p2-05"
+    },
+    {
+      "direction": "s2c",
+      "name": "meeting:recording-updated",
+      "payload": "{ meetingId, recordingId, status, durationSec?, retentionExpiresAt? } — cũng gửi user:{HOST,CO_HOST}",
+      "room": "meet",
+      "since": "p2-06"
+    },
+    {
+      "direction": "s2c",
+      "name": "meeting:recap-published",
+      "payload": "{ meetingId, recapId, publishedVersion, firstPublish } — cũng gửi user:{attendeeIds}",
+      "room": "meet",
+      "since": "p2-06"
+    },
+    {
+      "direction": "s2c",
+      "name": "admin:media-updated",
+      "payload": "{ v:1, kind: MEETING|CALL|RECORDING, id, status, serverNow } — chỉ để bảng admin invalidate, KHÔNG nội dung/người dùng (throttle 1/s/kind)",
+      "room": "admin",
+      "since": "p2-07"
+    },
+    {
+      "direction": "s2c",
+      "name": "ops:stats",
+      "payload": "{ v:1, socketConnections, onlineUsers, serverNow } — cron tĩnh 30s, chỉ khi có admin trong room",
+      "room": "admin",
+      "since": "p0-03"
+    },
+    {
+      "direction": "s2c",
+      "name": "pomodoro:updated",
+      "payload": "Phiên pomodoro đổi trạng thái",
+      "room": "user",
+      "since": "p4"
+    },
+    {
+      "direction": "s2c",
+      "name": "integration:updated",
+      "payload": "Kết nối tích hợp (webhook ngoài) đổi trạng thái",
+      "room": "user",
+      "since": "p5"
+    },
+    {
+      "direction": "s2c",
+      "name": "document:updated",
+      "payload": "Metadata tài liệu đổi (tạo/đổi tên/visibility) — khán giả theo trạng thái hiện tại",
+      "room": "user",
+      "since": "p6"
+    },
+    {
+      "direction": "s2c",
+      "name": "whiteboard:updated",
+      "payload": "{ v:1, id, workspaceId, name, visibility, status, thumbnailAssetId, version } — CHỈ metadata, nội dung vẽ đi qua collab (không qua Socket.IO)",
+      "room": "user",
+      "since": "p6-02"
+    },
+    {
+      "direction": "s2c",
+      "name": "partner:order",
+      "payload": "Hợp đồng tên sự kiện cho phân hệ đối tác (Phase 5+, chưa có mã thật)",
+      "room": null,
+      "since": "p5"
+    },
+    {
+      "direction": "s2c",
+      "name": "gamification:updated",
+      "payload": "Điểm/huy hiệu/streak gamification đổi",
+      "room": "user",
+      "since": "p6-06"
+    },
+    {
+      "direction": "s2c",
+      "name": "skill:unlocked",
+      "payload": "{ v:1, skillId, code, name, icon, unlockedAt } — huy hiệu kỹ năng mới",
+      "room": "user",
+      "since": "p6-06"
+    },
+    {
+      "direction": "s2c",
+      "name": "print-order:updated",
+      "payload": "Đơn in ấn đổi trạng thái",
+      "room": "user",
+      "since": "p6"
+    },
+    {
+      "direction": "s2c",
+      "name": "portfolio:build-updated",
+      "payload": "{ v:1, portfolioId, buildId, buildVersion, status: BUILDING|READY|FAILED, url?, error?, serverNow } — url chỉ khi READY",
+      "room": "user",
+      "since": "p6-07"
+    },
+    {
+      "direction": "s2c",
+      "name": "offer:updated",
+      "payload": "{ v:1, offerId, companyId, status, threadLocked, serverNow } — lời mời đổi trạng thái, KHÔNG tiêu đề/nội dung",
+      "room": "user",
+      "since": "p6-08"
+    },
+    {
+      "direction": "s2c",
+      "name": "offer:message-created",
+      "payload": "{ v:1, offerId, messageId, side, createdAt, serverNow } — tin mới trong lời mời (KHÔNG nội dung)",
+      "room": "user",
+      "since": "p6-08"
+    },
+    {
+      "direction": "s2c",
+      "name": "company:updated",
+      "payload": "{ v:1, companyId, status, tier, serverNow } — công ty được duyệt/từ chối/tạm ngưng/khôi phục hoặc đổi gói",
+      "room": "user",
+      "since": "p6-08"
+    },
+    {
+      "direction": "s2c",
+      "name": "poll:updated",
+      "payload": "{ v:1, pollId, messageId, scopeType, scopeId, status, closeReason?, options: [{id,voteCount}], voterCount, version, serverNow } — KHÔNG userId/myOptionIds (ẩn danh)",
+      "room": "ch",
+      "since": "p7-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "scheduled-message:updated",
+      "payload": "{ v:1, id, status, sendAt, messageId?, failReason?, version, serverNow } — KHÔNG mang nội dung tin",
+      "room": "user",
+      "since": "p7-04"
+    },
+    {
+      "direction": "s2c",
+      "name": "wellbeing:alert",
+      "payload": "{ v:1, assessmentId, level: MEDIUM|HIGH, suggestion: BREAK|SPREAD_TASKS|SLEEP, serverNow } — tối đa 1/24h, chỉ người đã bật theo dõi",
+      "room": "user",
+      "since": "p7-03"
+    },
+    {
+      "deprecated": {
+        "replacement": null,
+        "since": "D-13"
+      },
+      "direction": "s2c",
+      "name": "ai-job:updated",
+      "payload": "Tiến độ job AI (⏸ D-13 — AI tạm dừng, giữ tên KHÔNG xoá)",
+      "room": "user",
+      "since": "p6"
+    },
+    {
+      "direction": "c2s",
+      "name": "typing:start",
+      "payload": "{ scopeType, scopeId, threadId? } — bắt đầu gõ",
+      "room": null,
+      "since": "p0-03"
+    },
+    {
+      "direction": "c2s",
+      "name": "presence:heartbeat",
+      "payload": "Nhịp tim giữ trạng thái online",
+      "room": null,
+      "since": "p0-03"
+    },
+    {
+      "direction": "c2s",
+      "name": "quiz:answer",
+      "payload": "Người chơi gửi đáp án",
+      "room": null,
+      "since": "p5-01"
+    },
+    {
+      "direction": "c2s",
+      "name": "call:signal",
+      "payload": "Tín hiệu báo hiệu WebRTC (offer/answer/ICE)",
+      "room": null,
+      "since": "p2-01"
+    }
+  ],
+  "note": "Chép tay từ enum SocketEvent thật (README p0-09 be.md §6: mọi sự kiện hiện có trong enum, room/payload suy từ JSDoc cạnh mỗi giá trị). CHƯA phải SOCKET_EVENT_CATALOG dạng code (be.md §9 việc #4 — Zod payload + export-contracts.ts) — việc đó để đợt sau; file này là điểm khởi đầu tuân thủ CTR-07 (client dùng tên không có trong catalog → lỗi typecheck) khi contracts được sync sang app/admin.",
+  "source": "be/src/infrastructure/socket/socket.events.ts (enum SocketEvent)",
+  "version": "manual-1"
+}

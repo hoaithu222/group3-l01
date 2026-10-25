@@ -1,0 +1,26 @@
+{
+  "family": "Plus Jakarta Sans",
+  "roles": {
+    "display": { "size": 36, "lineHeight": 47 },
+    "header-lg": { "size": 28, "lineHeight": 37 },
+    "header-md": { "size": 24, "lineHeight": 32 },
+    "header-sm": { "size": 18, "lineHeight": 24 },
+    "body-lg": { "size": 16, "lineHeight": 24 },
+    "body-md": { "size": 14, "lineHeight": 20 },
+    "label-lg": { "size": 16, "lineHeight": 24 },
+    "label-md": { "size": 14, "lineHeight": 20 },
+    "label-sm": { "size": 12, "lineHeight": 16 },
+    "label-xs": { "size": 10, "lineHeight": 16 },
+    "caption-lg": { "size": 13, "lineHeight": 17 },
+    "caption-sm": { "size": 12, "lineHeight": 16 },
+    "link-lg": { "size": 16, "lineHeight": 21 },
+    "link-md": { "size": 14, "lineHeight": 20 },
+    "overline": { "size": 12, "lineHeight": 18, "letterSpacing": 0.6, "uppercase": true }
+  },
+  "weights": {
+    "regular": 400,
+    "medium": 500,
+    "semibold": 600,
+    "bold": 700
+  }
+}

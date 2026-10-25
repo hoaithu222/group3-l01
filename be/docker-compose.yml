@@ -1,0 +1,118 @@
+version: "3.8"
+
+# Docker Compose — PRODUCTION
+# Runs: Redis + api (HTTP) + worker (BullMQ, PROCESS_ROLE=worker). MongoDB Atlas
+# là cloud — không có mongo service ở đây. `db push` KHÔNG chạy trong container
+# (nhiều replica cùng push → đua) — chạy 1 lần ở bước deploy: `npm run db:push:prod`.
+# Frontend là Expo React Native app (../app) — build/publish qua EAS, không
+# chạy trong docker-compose này. ⚠ File này chỉ là bản chạy thử "giống production" trên MỘT máy (build từ ./Dockerfile).
+# Hạ tầng staging/production thật (nginx + TLS, admin SPA, api×2, worker, LiveKit + egress, collab, observability)
+# nằm ở `../deploy/` (p0-11): `deploy/compose/docker-compose.yml` + hướng dẫn `deploy/README.md`.
+# Usage: docker compose -f be/docker-compose.yml up -d
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      PROCESS_ROLE: api
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      APP_NAME: ${APP_NAME:-Super App API}
+      APP_VERSION: ${APP_VERSION:-1.0.0}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-}
+      FRONTEND_URL: ${FRONTEND_URL:-}
+      FEATURE_FLAGS: ${FEATURE_FLAGS:-}
+      QUEUE_PREFIX: ${QUEUE_PREFIX:-superapp}
+      STORAGE_TYPE: ${STORAGE_TYPE:-local}
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-25mb}
+      SIGNED_URL_TTL_SECONDS: ${SIGNED_URL_TTL_SECONDS:-60}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["node", "dist/worker.js"]
+    environment:
+      PROCESS_ROLE: worker
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      QUEUE_PREFIX: ${QUEUE_PREFIX:-superapp}
+      WORKER_CONCURRENCY_DEFAULT: ${WORKER_CONCURRENCY_DEFAULT:-5}
+      WORKER_CONCURRENCY_NOTIFICATIONS: ${WORKER_CONCURRENCY_NOTIFICATIONS:-20}
+      WORKER_CONCURRENCY_MEDIA: ${WORKER_CONCURRENCY_MEDIA:-2}
+      STORAGE_TYPE: ${STORAGE_TYPE:-local}
+      ASSET_ORPHAN_TTL_HOURS: ${ASSET_ORPHAN_TTL_HOURS:-24}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+volumes:
+  redis_data:

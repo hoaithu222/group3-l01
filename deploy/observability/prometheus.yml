@@ -1,0 +1,105 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Prometheus (p0-11 be.md §5.5). Chạy CÙNG VM với compose app (mạng `superapp_net`) nên scrape thẳng theo tên service.
+# ⚠️ `--enable-feature=expand-external-labels` (đã bật trong docker-compose.observability.yml) để ${ENV_NAME} dưới đây được thay bằng biến môi trường.
+# Bí mật: METRICS_TOKEN đọc từ file /etc/prometheus/secrets/metrics_token (scripts/render-config.sh observability) — KHÔNG ghi vào file này.
+# Mục tiêu theo môi trường (LiveKit, tên miền blackbox, collab) khai ở targets/*.yml (file_sd — sửa không cần restart).
+# ─────────────────────────────────────────────────────────────────────────────
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    env: ${ENV_NAME}
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # API: 2 replica, /metrics có Bearer METRICS_TOKEN (ngoài localhost). Tên metric: http_request_duration_seconds, socket_connections, queue_waiting, outbox_pending,
+  # livekit_webhook_total, livekit_rooms_active… (be/src/infrastructure/metrics).
+  - job_name: api
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/metrics_token
+    static_configs:
+      - targets: ["api-1:3000", "api-2:3000"]
+        labels:
+          service: api
+
+  # Worker: cổng metrics RIÊNG :9464 (WORKER_METRICS_PORT) — chỗ DUY NHẤT thấy queue_jobs_total, outbox_dispatch_*, push_sent_total, notification_fanout_*, turn_probe_*.
+  - job_name: worker
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/metrics_token
+    static_configs:
+      - targets: ["worker:9464"]
+        labels:
+          service: worker
+
+  - job_name: redis
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # LiveKit server (VM media): cổng `prometheus_port` 6789 trong livekit.yaml. Khai địa chỉ RIÊNG của VM media ở targets/livekit.yml (chép từ targets/livekit.example.yml).
+  - job_name: livekit
+    file_sd_configs:
+      - files: ["/etc/prometheus/targets/livekit.yml"]
+
+  # collab (p6-01) — chỉ khi profile `collab` chạy: khai ở targets/collab.yml (đường dẫn/cổng metrics theo collab/README khi package sẵn sàng).
+  - job_name: collab
+    file_sd_configs:
+      - files: ["/etc/prometheus/targets/collab.yml"]
+
+  # Thăm dò từ bên ngoài (blackbox): /api/health, /.well-known, admin, wss/TLS. Danh sách URL ở targets/blackbox-http.yml. probe_ssl_earliest_cert_expiry → cảnh báo CertExpiringSoon.
+  - job_name: blackbox-http
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    file_sd_configs:
+      - files: ["/etc/prometheus/targets/blackbox-http.yml"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # TCP + TLS (vd turn.<domain>:443, lk.<domain>:443): bắt tay TLS + hạn chứng chỉ. Danh sách ở targets/blackbox-tls.yml.
+  - job_name: blackbox-tls
+    metrics_path: /probe
+    params:
+      module: [tcp_tls]
+    file_sd_configs:
+      - files: ["/etc/prometheus/targets/blackbox-tls.yml"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # MongoDB Atlas (tuỳ chọn): CPU/kết nối/độ trễ nhân bản qua "Prometheus Integration" của Atlas (http_sd, cần Atlas API user).
+  # ⚠️ Kiểm tên metric trong tài liệu Atlas trước khi bật rule AtlasCpuHigh (alerts.yml). Cách KHÔNG cần exporter: đặt Atlas Alerts (CPU > 80%) gửi thẳng
+  # email/Slack — xem deploy/runbooks/restore-db.md §Cảnh báo Atlas.
+  # - job_name: atlas
+  #   scheme: https
+  #   basic_auth: { username_file: /etc/prometheus/secrets/atlas_user, password_file: /etc/prometheus/secrets/atlas_password }
+  #   http_sd_configs:
+  #     - url: https://cloud.mongodb.com/prometheus/v1.0/groups/<GROUP_ID>/discovery
+  #       basic_auth: { username_file: /etc/prometheus/secrets/atlas_user, password_file: /etc/prometheus/secrets/atlas_password }

@@ -1,0 +1,51 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+
+    // Ba cờ dưới KHÔNG nằm trong `strict`, phải bật riêng.
+    // `noUncheckedIndexedAccess` đắt giá nhất: `arr[0]` thành `T | undefined`
+    // nên buộc phải xử lý ca danh sách rỗng — nguồn của phần lớn lỗi
+    // "Cannot read property of undefined" gặp trên máy người dùng.
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // Bắt buộc `import type` khi chỉ import kiểu — bundle không kéo module thừa.
+    "verbatimModuleSyntax": true,
+
+    // Khai TƯỜNG MINH danh sách gói kiểu toàn cục, thay vì để TypeScript tự nạp
+    // mọi thứ trong `node_modules/@types` (danh sách đó thay đổi theo cây phụ
+    // thuộc, nên "tự nạp" nghĩa là hôm nay xanh mai đỏ mà không ai sửa gì).
+    //
+    // `jest` — để file test dùng `describe`/`it`/`expect` không cần import.
+    // `node`  — CHỈ cho `tests/`, `scripts/` và `app.config.ts`; ba nơi đó chạy
+    //           thật trong Node.
+    //
+    // ⛔ `node` ở đây làm `Buffer`, `__dirname`, `process.exit` trở thành hợp lệ
+    // với TypeScript TRÊN TOÀN dự án, kể cả code React Native — nơi chúng KHÔNG
+    // tồn tại lúc chạy. TypeScript không phân vùng theo thư mục được, nên hàng
+    // rào đặt ở ESLint: xem rule `no-restricted-globals` áp cho `app/**` và
+    // `src/**` trong `eslint.config.js`.
+    "types": ["jest", "node"],
+
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/assets/*": ["./assets/*"]
+    }
+  },
+
+  // `.expo/types` chứa kiểu route sinh bởi `experiments.typedRoutes`. Thiếu nó
+  // thì `router.push('/settings')` không được kiểm và `Href` rơi về `any`.
+  // Kiểu được sinh ở lần `npx expo start` đầu tiên.
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts",
+    "nativewind-env.d.ts"
+  ],
+
+  "exclude": ["node_modules", "android", "ios", "dist"]
+}

@@ -1,0 +1,19 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# egress.yaml — TEMPLATE (p0-08 be.md §3.2): envsubst → rendered/egress.yaml (chmod 600). Ghi hình RoomComposite → S3 riêng tư (mp4).
+# Đích S3 thực tế do BE truyền theo từng yêu cầu (EGRESS_S3_* của BE); khối `s3` dưới là mặc định của egress.
+# ─────────────────────────────────────────────────────────────────────────────
+api_key: ${LIVEKIT_API_KEY}
+api_secret: ${LIVEKIT_API_SECRET}
+ws_url: ws://127.0.0.1:7880
+redis:
+  address: 127.0.0.1:${LK_REDIS_PORT}
+  password: ${LK_REDIS_PASSWORD}
+s3:
+  access_key: ${EGRESS_S3_ACCESS_KEY_ID}
+  secret: ${EGRESS_S3_SECRET_ACCESS_KEY}
+  region: ${EGRESS_S3_REGION}
+  bucket: ${EGRESS_S3_BUCKET}
+cpu_cost:
+  room_composite_cpu_cost: 3 # đo lại ở MED-11; egress nặng CPU → tách VM riêng nếu cần
+health_port: 8082
+log_level: info

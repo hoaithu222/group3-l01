@@ -1,0 +1,17 @@
+/**
+ * Điểm vào CSS của NativeWind — Metro nạp file này (khai ở `metro.config.js`).
+ *
+ * ⛔ File này CỐ Ý gần như trống.
+ *
+ * Biến màu (`--primary-5`, `--bg-1`…) KHÔNG nằm ở đây: chúng được `tailwind.config.js`
+ * bơm vào bằng plugin `addBase`, đọc từ `src/styles/colors/colors.generated.js`.
+ * Viết tay biến ở đây là tạo nguồn sự thật THỨ HAI cho màu — hai nơi lệch nhau
+ * thì không có gì báo lỗi, chỉ có màu sai trên máy thật.
+ *
+ * Muốn đổi màu: sửa `src/styles/colors/colors.json` rồi `npm run generate:colors`.
+ * Muốn đổi cỡ chữ: sửa `src/styles/typography/typography.json` rồi `npm run generate:typography`.
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
